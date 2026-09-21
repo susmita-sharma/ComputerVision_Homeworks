@@ -1,3 +1,13 @@
+---
+title: Computer Vision Homeworks
+emoji: 🧿
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # CSc 8830 Computer Vision — Assignments
 
 
