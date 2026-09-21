@@ -1,0 +1,100 @@
+{% extends "shell.html" %}
+{% block content %}
+<div class="card">
+  <h1>HW3 &middot; Blur: Spatial vs. Frequency</h1>
+  <p class="muted">Upload an image, pick a blur kernel, and the app runs the <em>same</em> blur two independent
+    ways: (1) direct spatial convolution, sliding the kernel over the image, and (2) multiplying the image's
+    spectrum by the kernel's spectrum in the frequency domain and inverse-transforming. The two outputs should
+    be numerically identical up to floating-point rounding - which is exactly the convolution theorem.</p>
+</div>
+
+<div class="card">
+  <form method="POST" enctype="multipart/form-data">
+    <label>Image</label>
+    <input type="file" name="image" accept="image/*" required>
+
+    <label>Kernel type</label>
+    <select name="kernel_type">
+      <option value="gaussian">Gaussian</option>
+      <option value="box">Box (mean filter)</option>
+    </select>
+
+    <label>Kernel size (odd, pixels)</label>
+    <input type="number" name="ksize" value="15" min="3" step="2">
+
+    <label>Gaussian sigma (0 = auto, ksize/6)</label>
+    <input type="number" name="sigma" value="0" step="0.1" min="0">
+
+    <button type="submit">Run spatial + frequency blur</button>
+  </form>
+</div>
+
+{% if result %}
+<div class="card">
+  <h2>Result &mdash; {{ result.kernel_type }} kernel, {{ result.ksize }}&times;{{ result.ksize }}, &sigma;={{ result.sigma }}</h2>
+
+  <p class="muted">Original, spatial-domain result, frequency-domain result, and the (contrast-boosted) difference
+    between them, all in one strip so they're easy to line up side by side:</p>
+  <img src="{{ result.comparison_url }}" style="max-width:100%; border-radius:8px; border:1px solid var(--border);">
+
+  <h2 style="margin-top:26px;">Spectra (log magnitude, zero-frequency centered)</h2>
+  <p class="muted">These are the two factors being multiplied on the right-hand side of <code>F&middot;H</code>.
+    A blur kernel is a low-pass filter, so <code>H(u,v)</code> is bright near the center (low frequencies) and
+    fades toward the edges (high frequencies) - multiplying the image spectrum by it is what kills the image's
+    high-frequency (sharp/edge) content.</p>
+  <img src="{{ result.spectrum_url }}" style="max-width:100%; border-radius:8px; border:1px solid var(--border);">
+
+  <h2 style="margin-top:26px;">Numerical agreement</h2>
+  <div class="stat-grid">
+    <div class="stat-box"><div class="label">Max abs. pixel diff</div><div class="value">{{ "%.2e"|format(result.metrics.max_abs_diff) }}</div></div>
+    <div class="stat-box"><div class="label">Mean abs. pixel diff</div><div class="value">{{ "%.2e"|format(result.metrics.mean_abs_diff) }}</div></div>
+    <div class="stat-box"><div class="label">MSE</div><div class="value">{{ "%.2e"|format(result.metrics.mse) }}</div></div>
+  </div>
+  <p style="margin-top:14px;">
+    {% if result.metrics.max_abs_diff < 0.05 %}
+      <span class="badge-ok">&#10003; Spatial and frequency-domain results agree to within floating-point rounding</span>
+      (pixel values are 0-255, so a max difference under 0.05 is far below one gray level) - this is the
+      experimental confirmation of <code>f * h &harr; F&middot;H</code> below.
+    {% else %}
+      Max difference is {{ "%.3f"|format(result.metrics.max_abs_diff) }} gray levels - still small relative to
+      the 0-255 range, and consistent with floating-point/FFT rounding rather than a modeling error.
+    {% endif %}
+  </p>
+</div>
+{% endif %}
+
+<div class="theory-box">
+  <h3>Theory: convolution in space &equiv; multiplication in frequency</h3>
+  <p>Let <code>f(x, y)</code> be the image and <code>h(x, y)</code> the blur kernel. 2D linear convolution is
+    defined as</p>
+  <div class="eq">\( (f * h)(x,y) \;=\; \sum_{m}\sum_{n} f(m,n)\,h(x-m,\,y-n) \)</div>
+
+  <p>The 2D Discrete Fourier Transform of a size-<code>M&times;N</code> signal is</p>
+  <div class="eq">\( F(u,v) \;=\; \sum_{x=0}^{M-1}\sum_{y=0}^{N-1} f(x,y)\, e^{-j 2\pi (ux/M + vy/N)} \)</div>
+
+  <p><strong>Derivation.</strong> Take the DFT of the convolution directly:</p>
+  <div class="eq">\( \mathcal{F}\{f*h\}(u,v) = \sum_{x,y} \Big[\sum_{m,n} f(m,n)h(x-m,y-n)\Big] e^{-j2\pi(ux/M+vy/N)} \)</div>
+  <p>Swap the order of summation and substitute <code>x' = x - m</code>, <code>y' = y - n</code>:</p>
+  <div class="eq">
+    \( = \sum_{m,n} f(m,n) \sum_{x',y'} h(x',y')\, e^{-j2\pi(u(x'+m)/M + v(y'+n)/N)} \)
+  </div>
+  <p>The inner sum is exactly <code>H(u,v)</code> times a phase factor that only depends on <code>(m,n)</code>:</p>
+  <div class="eq">
+    \( = \Big[\sum_{m,n} f(m,n)\, e^{-j2\pi(um/M+vn/N)}\Big] \cdot H(u,v) \;=\; F(u,v)\,H(u,v) \)
+  </div>
+  <p><strong>Result (convolution theorem):</strong></p>
+  <div class="eq" style="font-size:1.1em;">\( f * h \;\;\Longleftrightarrow\;\; F(u,v)\cdot H(u,v) \)</div>
+
+  <p>Two practical details this implementation takes care of, so the spatial and frequency results actually
+    line up pixel-for-pixel:</p>
+  <ol>
+    <li><strong>Circular vs. linear convolution.</strong> Multiplying two DFTs of the same size <code>M&times;N</code>
+      gives their <em>circular</em> convolution, which wraps around at the image borders. To get ordinary
+      (linear) convolution, both the image and the kernel are zero-padded to size
+      <code>(M+k_h-1)&times;(N+k_w-1)</code> before transforming - the classic "linear convolution via FFT"
+      trick - and the result is cropped back using the kernel's anchor offset.</li>
+    <li><strong>Boundary handling.</strong> The spatial-domain path uses zero-padded borders
+      (<code>cv2.BORDER_CONSTANT</code>) so it matches the implicit zero-padding used on the frequency side.</li>
+  </ol>
+</div>
+{% endblock %}

@@ -1,0 +1,144 @@
+{% extends "shell.html" %}
+{% block content %}
+<div class="card">
+  <h1>HW4 &middot; Human Boundary Extraction</h1>
+  <p class="muted">Two independent pipelines - one for regular RGB photos, one for thermal photos - find a human's
+    exact boundary using only classical OpenCV operations (Otsu thresholding, morphology, watershed, contours).
+    No machine learning or deep learning is used for the segmentation itself. Optionally upload a SAM2 mask
+    (run separately - see note below) to compare against.</p>
+  <p class="muted">SAM2 does not run inside this app (it needs PyTorch + GPU-scale checkpoints). Generate a mask
+    with the <a href="https://ai.meta.com/research/sam2/" target="_blank" rel="noopener">official SAM2</a>
+    model in a notebook/Colab, save it as a black/white PNG (white = person), and upload it alongside the
+    photo below to get IoU/Dice agreement metrics.</p>
+</div>
+
+<div class="card">
+  <h2>RGB photo</h2>
+  <p class="muted">Pipeline: grayscale &rarr; Gaussian blur &rarr; Otsu threshold (foreground/background side
+    picked automatically) &rarr; largest connected component &rarr; morphological close/open + hole fill &rarr;
+    watershed refinement &rarr; external contour.</p>
+  <form method="POST" action="{{ url_for('hw4.process_rgb') }}" enctype="multipart/form-data">
+    <label>RGB photo of a person</label>
+    <input type="file" name="image" accept="image/*" required>
+    <label>SAM2 mask (optional, white = person)</label>
+    <input type="file" name="sam2_mask" accept="image/*">
+    <button type="submit">Extract boundary</button>
+  </form>
+</div>
+
+{% if rgb_result %}
+<div class="card">
+  <h3>RGB result</h3>
+  <div class="comparison-grid">
+    <figure><img src="{{ rgb_result.original_url }}"><figcaption>Original</figcaption></figure>
+    <figure><img src="{{ rgb_result.otsu_url }}"><figcaption>Otsu mask (auto polarity)</figcaption></figure>
+    <figure><img src="{{ rgb_result.cleaned_url }}"><figcaption>Morphology + hole fill</figcaption></figure>
+    <figure><img src="{{ rgb_result.boundary_mask_url }}"><figcaption>Final mask (post-watershed)</figcaption></figure>
+    <figure><img src="{{ rgb_result.overlay_url }}"><figcaption>Boundary overlay</figcaption></figure>
+  </div>
+
+  {% if rgb_result.comparison %}
+  <h3 style="margin-top:22px;">vs. SAM2</h3>
+  <div class="comparison-grid">
+    <figure><img src="{{ rgb_result.comparison.sam2_mask_url }}"><figcaption>SAM2 mask (uploaded)</figcaption></figure>
+    <figure><img src="{{ rgb_result.comparison.agreement_url }}"><figcaption>Green=agree, Red=OpenCV-only, Blue=SAM2-only</figcaption></figure>
+  </div>
+  <div class="stat-grid">
+    <div class="stat-box"><div class="label">IoU</div><div class="value">{{ "%.3f"|format(rgb_result.comparison.metrics.iou) }}</div></div>
+    <div class="stat-box"><div class="label">Dice</div><div class="value">{{ "%.3f"|format(rgb_result.comparison.metrics.dice) }}</div></div>
+    <div class="stat-box"><div class="label">OpenCV area (px)</div><div class="value">{{ rgb_result.comparison.metrics.area_opencv_px }}</div></div>
+    <div class="stat-box"><div class="label">SAM2 area (px)</div><div class="value">{{ rgb_result.comparison.metrics.area_sam2_px }}</div></div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<hr class="section-divider">
+
+<div class="card">
+  <h2>Thermal photo</h2>
+  <p class="muted">Same pipeline, but the foreground/background polarity is picked by intensity rather than
+    border contact: a warm human body is usually the <em>brighter</em> region in a thermal image.</p>
+  <form method="POST" action="{{ url_for('hw4.process_thermal') }}" enctype="multipart/form-data">
+    <label>Thermal photo of a person</label>
+    <input type="file" name="image" accept="image/*" required>
+    <label>In this thermal palette, is a hot body brighter?</label>
+    <select name="hot_is_bright">
+      <option value="yes">Yes - hot = bright (most common)</option>
+      <option value="no">No - hot = dark</option>
+    </select>
+    <label>SAM2 mask (optional, white = person)</label>
+    <input type="file" name="sam2_mask" accept="image/*">
+    <button type="submit">Extract boundary</button>
+  </form>
+</div>
+
+{% if thermal_result %}
+<div class="card">
+  <h3>Thermal result</h3>
+  <div class="comparison-grid">
+    <figure><img src="{{ thermal_result.original_url }}"><figcaption>Original</figcaption></figure>
+    <figure><img src="{{ thermal_result.otsu_url }}"><figcaption>Otsu mask (intensity polarity)</figcaption></figure>
+    <figure><img src="{{ thermal_result.cleaned_url }}"><figcaption>Morphology + hole fill</figcaption></figure>
+    <figure><img src="{{ thermal_result.boundary_mask_url }}"><figcaption>Final mask (post-watershed)</figcaption></figure>
+    <figure><img src="{{ thermal_result.overlay_url }}"><figcaption>Boundary overlay</figcaption></figure>
+  </div>
+
+  {% if thermal_result.comparison %}
+  <h3 style="margin-top:22px;">vs. SAM2</h3>
+  <div class="comparison-grid">
+    <figure><img src="{{ thermal_result.comparison.sam2_mask_url }}"><figcaption>SAM2 mask (uploaded)</figcaption></figure>
+    <figure><img src="{{ thermal_result.comparison.agreement_url }}"><figcaption>Green=agree, Red=OpenCV-only, Blue=SAM2-only</figcaption></figure>
+  </div>
+  <div class="stat-grid">
+    <div class="stat-box"><div class="label">IoU</div><div class="value">{{ "%.3f"|format(thermal_result.comparison.metrics.iou) }}</div></div>
+    <div class="stat-box"><div class="label">Dice</div><div class="value">{{ "%.3f"|format(thermal_result.comparison.metrics.dice) }}</div></div>
+    <div class="stat-box"><div class="label">OpenCV area (px)</div><div class="value">{{ thermal_result.comparison.metrics.area_opencv_px }}</div></div>
+    <div class="stat-box"><div class="label">SAM2 area (px)</div><div class="value">{{ thermal_result.comparison.metrics.area_sam2_px }}</div></div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<hr class="section-divider">
+
+<div class="theory-box">
+  <h3>Theory: edge detection &amp; segmentation in the frequency domain</h3>
+
+  <p><strong>Edge detection as high-pass filtering.</strong> The Fourier differentiation property says that
+    differentiating in space corresponds to multiplying by frequency in the transform domain:</p>
+  <div class="eq">\( \mathcal{F}\Big\{\dfrac{\partial f}{\partial x}\Big\}(u,v) = (j2\pi u)\, F(u,v), \qquad
+    \mathcal{F}\Big\{\dfrac{\partial f}{\partial y}\Big\}(u,v) = (j2\pi v)\, F(u,v) \)</div>
+  <p>A gradient-based edge operator (Sobel/Prewitt) approximates <code>&part;f/&part;x</code> and
+    <code>&part;f/&part;y</code>, so applying it is - in the frequency domain - equivalent to multiplying
+    <code>F(u,v)</code> by <code>j2&pi;u</code> or <code>j2&pi;v</code>: a filter whose gain grows linearly with
+    frequency and vanishes at <code>u = 0</code> (a pure high-pass filter). That is precisely why edges (rapid
+    intensity change = high spatial frequency) are amplified and flat regions (low frequency, including
+    <code>u=v=0</code>, the DC/average brightness) are suppressed.</p>
+
+  <p><strong>Laplacian.</strong> Applying the differentiation property twice gives the Laplacian's frequency
+    response:</p>
+  <div class="eq">\( \mathcal{F}\{\nabla^2 f\}(u,v) = -4\pi^2 (u^2+v^2)\, F(u,v) \)</div>
+  <p>This is a radially symmetric high-pass filter (gain grows with distance from the origin in frequency space)
+    - so the Laplacian edge detector is, in the frequency domain, just multiplying the spectrum by
+    <code>-4&pi;&sup2;(u&sup2;+v&sup2;)</code> and inverse-transforming. Equivalently, an edge map can be
+    produced directly as</p>
+  <div class="eq">\( \text{edges}(x,y) = \mathcal{F}^{-1}\{\,H_{hp}(u,v)\, F(u,v)\,\} \)</div>
+  <p>for any high-pass <code>H<sub>hp</sub></code> (ideal, Gaussian, or Butterworth high-pass filters are the
+    usual choices, trading ringing artifacts against transition sharpness).</p>
+
+  <p><strong>Segmentation via frequency content.</strong> The complementary operation - low-pass filtering,
+    <code>H<sub>lp</sub>(u,v) = 1 - H<sub>hp</sub>(u,v)</code> - suppresses the same high-frequency edge/texture
+    energy and keeps smooth regions intact; this is exactly the blur used in HW3, and is often a pre-processing
+    step before thresholding so that a segmentation boundary follows large-scale structure rather than noise.
+    More generally, a region can be characterized by the local energy in different frequency bands (e.g. a
+    bank of band-pass/Gabor filters): a pixel's feature vector is
+    <code>[\,|\mathcal{F}^{-1}\{H_i(u,v)F(u,v)\}(x,y)\,|]_i</code> for a set of band-pass filters
+    <code>H<sub>i</sub></code>, and pixels/regions are grouped by similarity of that vector - texture-based
+    segmentation purely from Fourier-domain analysis, with no learned model involved.</p>
+
+  <p>In short: <strong>edges live at high spatial frequency, regions live at low spatial frequency</strong>, and
+    both edge detection and region segmentation can be phrased as choosing the right <code>H(u,v)</code> to
+    multiply the image's spectrum by before inverting.</p>
+</div>
+{% endblock %}

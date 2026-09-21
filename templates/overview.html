@@ -1,0 +1,41 @@
+{% extends "shell.html" %}
+{% block content %}
+<div class="card">
+  <h1>CSc 8830 Computer Vision</h1>
+  <p>Three homeworks, one app. Pick one from the nav bar or below.</p>
+</div>
+
+<div class="card">
+  <h2>HW2 &middot; Camera Calibration &amp; Measurement</h2>
+  <p class="muted">Chessboard calibration, then pixel distance &rarr; real-world length, then accuracy check.</p>
+  <ol>
+    <li><a href="{{ url_for('hw2.calibrate_view') }}">Calibration</a></li>
+    <li><a href="{{ url_for('hw2.measure_view') }}">Measurement</a></li>
+    <li><a href="{{ url_for('hw2.validate_view') }}">Validation</a></li>
+  </ol>
+  {% if calib %}
+    <div class="stat-grid">
+      <div class="stat-box"><div class="label">Image size</div><div class="value">{{ calib.image_size[0] }} x {{ calib.image_size[1] }}</div></div>
+      <div class="stat-box"><div class="label">fx (px)</div><div class="value">{{ "%.1f"|format(calib.camera_matrix[0][0]) }}</div></div>
+      <div class="stat-box"><div class="label">fy (px)</div><div class="value">{{ "%.1f"|format(calib.camera_matrix[1][1]) }}</div></div>
+      <div class="stat-box"><div class="label">Reprojection error</div><div class="value">{{ "%.3f"|format(calib.reprojection_error) }} px</div></div>
+    </div>
+  {% else %}
+    <p class="muted">No calibration on file yet - <a href="{{ url_for('hw2.calibrate_view') }}">start here</a>.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>HW3 &middot; Blur: Spatial vs. Frequency</h2>
+  <p class="muted">Blurs an image two independent ways - convolution and FFT multiplication - and checks the
+    outputs match, as evidence for the convolution theorem.</p>
+  <p><a href="{{ url_for('hw3.blur_view') }}">Open HW3 &rarr;</a></p>
+</div>
+
+<!-- <div class="card">
+  <h2>HW4 &middot; Human Boundary Extraction (RGB + Thermal)</h2>
+  <p class="muted">Pulls a human's outline out of an RGB photo and a thermal photo using classic OpenCV only
+    (no ML/DL), then compares against a SAM2 mask you supply.</p>
+  <p><a href="{{ url_for('hw4.home') }}">Open HW4 &rarr;</a></p>
+</div> -->
+{% endblock %}

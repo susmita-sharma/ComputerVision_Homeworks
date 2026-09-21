@@ -1,10 +1,10 @@
-{% extends "base.html" %}
+{% extends "shell.html" %}
 {% block content %}
 <div class="card">
   <h1>Step 2 - Real-World Measurement</h1>
 
   {% if not calib %}
-    <p class="muted">No calibration found yet - go run <a href="{{ url_for('calibrate_view') }}">Step 1</a> first.</p>
+    <p class="muted">No calibration found yet - go run <a href="{{ url_for('hw2.calibrate_view') }}">Step 1</a> first.</p>
   {% elif not image_url %}
     <p>Upload a photo of the object you want to measure.</p>
     <form method="POST" enctype="multipart/form-data">

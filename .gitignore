@@ -11,4 +11,16 @@ static/results/*
 !static/results/.gitkeep
 results/*
 !results/.gitkeep
+static/hw3/uploads/*
+!static/hw3/uploads/.gitkeep
+static/hw3/outputs/*
+!static/hw3/outputs/.gitkeep
+static/hw4/rgb_uploads/*
+!static/hw4/rgb_uploads/.gitkeep
+static/hw4/thermal_uploads/*
+!static/hw4/thermal_uploads/.gitkeep
+static/hw4/sam2_uploads/*
+!static/hw4/sam2_uploads/.gitkeep
+static/hw4/outputs/*
+!static/hw4/outputs/.gitkeep
 .DS_Store

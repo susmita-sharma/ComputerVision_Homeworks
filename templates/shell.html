@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>{% block title %}Camera Calibration & Measurement{% endblock %}</title>
+  <title>{% block title %}CSc 8830 Computer Vision{% endblock %}</title>
+  <script>
+    window.MathJax = { tex: { inlineMath: [['\\(', '\\)']], displayMath: [['$$', '$$']] } };
+  </script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.min.js"></script>
   <style>
     :root {
       --accent: #2e6f9e;
@@ -79,15 +83,54 @@
     code { background: #eef1f4; padding: 2px 6px; border-radius: 4px; }
     .muted { color: #6b7280; font-size: 13px; }
     #clickCanvas { border: 1px solid var(--border); max-width: 100%; cursor: crosshair; }
+
+    nav.topnav { flex-wrap: wrap; row-gap: 8px; }
+    .nav-group { position: relative; }
+    .nav-group > span.nav-label {
+      color: #dce6ec; font-size: 15px; cursor: default; padding: 4px 0;
+      border-bottom: 2px solid transparent;
+    }
+    .nav-group.open > span.nav-label, .nav-group:hover > span.nav-label { border-bottom-color: var(--accent); }
+    .nav-dropdown {
+      display: none; position: absolute; top: 26px; left: 0; background: #1c2b36;
+      border: 1px solid #33465a; border-radius: 8px; padding: 6px; min-width: 190px; z-index: 20;
+    }
+    .nav-group:hover .nav-dropdown, .nav-group.open .nav-dropdown { display: block; }
+    .nav-dropdown a { display: block; padding: 7px 10px; border-radius: 5px; white-space: nowrap; }
+    .nav-dropdown a:hover { background: #24384a; text-decoration: none; }
+    .hw-pill {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.03em; color: #9fb3c2;
+      border: 1px solid #33465a; border-radius: 999px; padding: 1px 8px; margin-left: 4px;
+    }
+    .theory-box {
+      background: #0f172a; color: #e2e8f0; border-radius: 10px; padding: 22px 26px;
+      margin: 16px 0; line-height: 1.65; font-size: 14.5px;
+    }
+    .theory-box h3 { color: #93c5fd; margin-top: 0; }
+    .theory-box .eq { text-align: center; margin: 14px 0; color: #fde68a; }
+    .theory-box code { background: #1e293b; color: #93c5fd; }
+    .comparison-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 14px; }
+    .comparison-grid figure { margin: 0; background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+    .comparison-grid img { width: 100%; border-radius: 5px; display: block; }
+    .comparison-grid figcaption { font-size: 12.5px; color: #5b6672; text-align: center; margin-top: 6px; }
+    .section-divider { border: none; border-top: 1px solid var(--border); margin: 30px 0; }
+    .badge-ok { color: #146c2e; font-weight: 700; }
   </style>
 </head>
 <body>
-  <nav>
-    <span class="brand">CV Module 2</span>
-    <a href="{{ url_for('index') }}">Overview</a>
-    <a href="{{ url_for('calibrate_view') }}">1. Calibration</a>
-    <a href="{{ url_for('measure_view') }}">2. Measurement</a>
-    <a href="{{ url_for('validate_view') }}">3. Validation</a>
+  <nav class="topnav">
+    <span class="brand">CSc 8830</span>
+    <a href="{{ url_for('overview') }}">Overview</a>
+    <div class="nav-group">
+      <span class="nav-label">HW2</span>
+      <div class="nav-dropdown">
+        <a href="{{ url_for('hw2.calibrate_view') }}">1. Calibration</a>
+        <a href="{{ url_for('hw2.measure_view') }}">2. Measurement</a>
+        <a href="{{ url_for('hw2.validate_view') }}">3. Validation</a>
+      </div>
+    </div>
+    <a href="{{ url_for('hw3.blur_view') }}">HW3</a>
+    <a href="{{ url_for('hw4.home') }}">HW4</a>
   </nav>
   <div class="container">
     {% with messages = get_flashed_messages() %}
