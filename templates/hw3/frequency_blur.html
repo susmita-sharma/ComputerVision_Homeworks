@@ -13,11 +13,7 @@
     <label>Image</label>
     <input type="file" name="image" accept="image/*" required>
 
-    <label>Kernel type</label>
-    <select name="kernel_type">
-      <option value="gaussian">Gaussian</option>
-      <option value="box">Box (mean filter)</option>
-    </select>
+    <p class="muted">Runs both a Gaussian and a box (mean filter) kernel and shows the comparison for each.</p>
 
     <label>Kernel size (odd, pixels)</label>
     <input type="number" name="ksize" value="15" min="3" step="2">
@@ -29,20 +25,15 @@
   </form>
 </div>
 
-{% if result %}
+{% if results %}
+{% for result in results %}
 <div class="card">
   <h2>Result &mdash; {{ result.kernel_type }} kernel, {{ result.ksize }}&times;{{ result.ksize }}, &sigma;={{ result.sigma }}</h2>
 
-  <p class="muted">Original, spatial-domain result, frequency-domain result, and the (contrast-boosted) difference
-    between them, all in one strip so they're easy to line up side by side:</p>
+  <p class="muted">Everything for this kernel in one image: original, spatial-domain result, frequency-domain
+    result, their (contrast-boosted) difference, and the image/kernel log-magnitude spectra - all lined up side
+    by side:</p>
   <img src="{{ result.comparison_url }}" style="max-width:100%; border-radius:8px; border:1px solid var(--border);">
-
-  <h2 style="margin-top:26px;">Spectra (log magnitude, zero-frequency centered)</h2>
-  <p class="muted">These are the two factors being multiplied on the right-hand side of <code>F&middot;H</code>.
-    A blur kernel is a low-pass filter, so <code>H(u,v)</code> is bright near the center (low frequencies) and
-    fades toward the edges (high frequencies) - multiplying the image spectrum by it is what kills the image's
-    high-frequency (sharp/edge) content.</p>
-  <img src="{{ result.spectrum_url }}" style="max-width:100%; border-radius:8px; border:1px solid var(--border);">
 
   <h2 style="margin-top:26px;">Numerical agreement</h2>
   <div class="stat-grid">
@@ -61,6 +52,7 @@
     {% endif %}
   </p>
 </div>
+{% endfor %}
 {% endif %}
 
 <div class="theory-box">

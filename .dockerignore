@@ -1,0 +1,15 @@
+.git
+__pycache__/
+*.pyc
+venv/
+tests/
+static/calib_uploads/*
+static/object_uploads/*
+static/results/*
+static/hw3/uploads/*
+static/hw3/outputs/*
+static/hw4/rgb_uploads/*
+static/hw4/thermal_uploads/*
+static/hw4/sam2_uploads/*
+static/hw4/outputs/*
+!static/**/.gitkeep

@@ -191,3 +191,19 @@ def build_comparison_panel(labeled_images, tile_height=260, pad=10, label_bar_h=
     framed = cv2.copyMakeBorder(row, border, border, border, border,
                                  cv2.BORDER_CONSTANT, value=(255, 255, 255))
     return framed
+
+
+def build_kernel_comparison_panel(image_bgr, ksize, sigma=None):
+    """Runs the spatial-domain blur with both a box and a gaussian kernel and
+    stitches the original image next to each kernel's result into one
+    labeled panel, so the two kernel types can be judged side by side in a
+    single output image.
+    """
+    gaussian = run_both_domains(image_bgr, "gaussian", ksize, sigma)
+    box = run_both_domains(image_bgr, "box", ksize, sigma)
+
+    return build_comparison_panel([
+        ("original", image_bgr),
+        ("gaussian blur", gaussian["spatial_result"]),
+        ("box blur", box["spatial_result"]),
+    ])
