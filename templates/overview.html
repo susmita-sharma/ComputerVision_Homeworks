@@ -38,4 +38,19 @@
     (no ML/DL), then compares against a SAM2 mask you supply.</p>
   <p><a href="{{ url_for('hw4.home') }}">Open HW4 &rarr;</a></p>
 </div> -->
+
+<div class="card">
+  <h2>HW5 &middot; Optical Flow, Motion Tracking &amp; Structure from Motion</h2>
+  <p class="muted">Dense optical flow on real video with a color-coded flow visualization, the Lucas-Kanade
+    tracking equations derived from brightness constancy and validated pixel-by-pixel against OpenCV, a
+    from-scratch bilinear interpolation implementation, and a 4-viewpoint structure-from-motion
+    reconstruction of a planar object's boundary.</p>
+  <ol>
+    <li><a href="{{ url_for('hw5.flow_view') }}">Optical Flow</a> - upload a &ge;30s video clip with motion</li>
+    <li><a href="{{ url_for('hw5.tracking_view') }}">Tracking &amp; Bilinear Interpolation</a> - derivation +
+      validate on a real frame pair</li>
+    <li><a href="{{ url_for('hw5.sfm_view') }}">Structure from Motion</a> - 4 photos of a flat object &rarr;
+      reconstructed boundary + camera poses</li>
+  </ol>
+</div>
 {% endblock %}

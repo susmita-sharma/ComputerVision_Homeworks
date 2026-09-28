@@ -8,17 +8,17 @@ import os
 import numpy as np
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 
-from Homework import STATIC_ROOT
 from . import calibration
 from . import dimensions
 from . import validate as vm
 
-hw2 = Blueprint("hw2", __name__, url_prefix="/hw2")
+hw2 = Blueprint("hw2", __name__, url_prefix="/hw2", template_folder="templates", static_folder="static")
 
-UPLOAD_CALIB_DIR = os.path.join(STATIC_ROOT, "calib_uploads")
-UPLOAD_OBJ_DIR = os.path.join(STATIC_ROOT, "object_uploads")
-CALIB_FILE = os.path.join(STATIC_ROOT, "calib", "camera_calib.npz")
-RESULTS_DIR = os.path.join(STATIC_ROOT, "results")
+MODULE_ROOT = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_CALIB_DIR = os.path.join(MODULE_ROOT, "static", "calib_uploads")
+UPLOAD_OBJ_DIR = os.path.join(MODULE_ROOT, "static", "object_uploads")
+CALIB_FILE = os.path.join(MODULE_ROOT, "static", "calib", "camera_calib.npz")
+RESULTS_DIR = os.path.join(MODULE_ROOT, "static", "results")
 
 for d in [UPLOAD_CALIB_DIR, UPLOAD_OBJ_DIR, os.path.dirname(CALIB_FILE), RESULTS_DIR]:
     os.makedirs(d, exist_ok=True)
@@ -111,7 +111,7 @@ def measure_view():
         f = request.files["object_image"]
         path = os.path.join(UPLOAD_OBJ_DIR, f.filename)
         f.save(path)
-        image_url = url_for("static", filename=f"object_uploads/{f.filename}")
+        image_url = url_for("hw2.static", filename=f"object_uploads/{f.filename}")
         return render_template("hw2/measurement_step.html", calib=calib, image_url=image_url,
                                 image_name=f.filename, result=None)
 
@@ -133,7 +133,7 @@ def measure_view():
         "real_mm": real_mm,
         "real_cm": real_mm / 10.0,
     }
-    image_url = url_for("static", filename=f"object_uploads/{image_name}")
+    image_url = url_for("hw2.static", filename=f"object_uploads/{image_name}")
     return render_template("hw2/measurement_step.html", calib=calib, image_url=image_url,
                             image_name=image_name, result=result)
 
@@ -159,7 +159,7 @@ def validate_view():
     vm.make_plots(df_with_error, RESULTS_DIR)
 
     table_html = df_with_error.round(2).to_html(index=False, classes="result-table")
-    plot1 = url_for("static", filename="results/error_by_object.png")
-    plot2 = url_for("static", filename="results/percent_error.png")
+    plot1 = url_for("hw2.static", filename="results/error_by_object.png")
+    plot2 = url_for("hw2.static", filename="results/percent_error.png")
 
     return render_template("hw2/validation_step.html", stats=stats, table=table_html, plot1=plot1, plot2=plot2)

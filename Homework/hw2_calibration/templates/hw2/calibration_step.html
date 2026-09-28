@@ -35,4 +35,11 @@
   <p class="muted">Saved to static/calib/camera_calib.npz</p>
 </div>
 {% endif %}
+
+<div class="card">
+  <h2>Offline example output</h2>
+  <p class="muted">Corner detection run on one of the repo's own calibration photos (10&times;7 inner corners), shown here so you can see what a
+    successful detection looks like without uploading anything.</p>
+  <img src="{{ url_for('hw2.static', filename='demo/calibration_corners.jpg') }}" style="max-width:100%; border-radius:8px; border:1px solid var(--border);">
+</div>
 {% endblock %}

@@ -55,6 +55,15 @@
 {% endfor %}
 {% endif %}
 
+<div class="card">
+  <h2>Offline example output</h2>
+  <p class="muted">The same pipeline run ahead of time on a sample photo from the repo, so you can see the panel layout without uploading anything:</p>
+  <p class="muted"><strong>Gaussian kernel</strong></p>
+  <img src="{{ url_for('hw3.static', filename='demo/gaussian_result.jpg') }}" style="max-width:100%; border-radius:8px; border:1px solid var(--border);">
+  <p class="muted" style="margin-top:18px;"><strong>Box kernel</strong></p>
+  <img src="{{ url_for('hw3.static', filename='demo/box_result.jpg') }}" style="max-width:100%; border-radius:8px; border:1px solid var(--border);">
+</div>
+
 <div class="theory-box">
   <h3>Theory: convolution in space &equiv; multiplication in frequency</h3>
   <p>Let <code>f(x, y)</code> be the image and <code>h(x, y)</code> the blur kernel. 2D linear convolution is

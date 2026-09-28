@@ -130,7 +130,19 @@
       </div>
     </div>
     <a href="{{ url_for('hw3.blur_view') }}">HW3</a>
+<<<<<<< HEAD
     <!-- <a href="{{ url_for('hw4.home') }}">HW4</a> -->
+=======
+    <a href="{{ url_for('hw4.home') }}">HW4</a>
+    <div class="nav-group">
+      <span class="nav-label">HW5</span>
+      <div class="nav-dropdown">
+        <a href="{{ url_for('hw5.flow_view') }}">1. Optical Flow</a>
+        <a href="{{ url_for('hw5.tracking_view') }}">2. Tracking &amp; Bilinear Interp.</a>
+        <a href="{{ url_for('hw5.sfm_view') }}">3. Structure from Motion</a>
+      </div>
+    </div>
+>>>>>>> 18cb6ad (hw4)
   </nav>
   <div class="container">
     {% with messages = get_flashed_messages() %}

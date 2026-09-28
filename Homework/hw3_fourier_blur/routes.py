@@ -5,13 +5,13 @@ import cv2
 import numpy as np
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 
-from Homework import STATIC_ROOT
 from . import spectral_blur as sb
 
-hw3 = Blueprint("hw3", __name__, url_prefix="/hw3")
+hw3 = Blueprint("hw3", __name__, url_prefix="/hw3", template_folder="templates", static_folder="static")
 
-UPLOAD_DIR = os.path.join(STATIC_ROOT, "hw3", "uploads")
-OUTPUT_DIR = os.path.join(STATIC_ROOT, "hw3", "outputs")
+MODULE_ROOT = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_DIR = os.path.join(MODULE_ROOT, "static", "uploads")
+OUTPUT_DIR = os.path.join(MODULE_ROOT, "static", "outputs")
 for d in (UPLOAD_DIR, OUTPUT_DIR):
     os.makedirs(d, exist_ok=True)
 
@@ -19,7 +19,7 @@ for d in (UPLOAD_DIR, OUTPUT_DIR):
 def _save_png(array_uint8, name, stamp):
     filename = f"{stamp}_{name}.png"
     cv2.imwrite(os.path.join(OUTPUT_DIR, filename), array_uint8)
-    return url_for("static", filename=f"hw3/outputs/{filename}")
+    return url_for("hw3.static", filename=f"outputs/{filename}")
 
 
 def _run_one_kernel(image, kernel_type, ksize, sigma, stamp):
