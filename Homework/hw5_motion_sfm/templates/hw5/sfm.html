@@ -1,0 +1,228 @@
+{% extends "shell.html" %}
+{% block content %}
+<div class="card">
+  <h1>HW5 Step 3 &middot; Structure from Motion (Planar Object, 4 Viewpoints)</h1>
+  <p class="muted">Recovers each camera's pose from 4 photos of one flat object, then triangulates extra
+    boundary points across the recovered cameras to reconstruct the object's outline.</p>
+</div>
+
+<div class="theory-box">
+  <h3>1. Camera model</h3>
+  <p>A pinhole camera maps a 3D world point \(X_w=(X,Y,Z)\) to a homogeneous image point via</p>
+  <p class="eq">$$s\begin{bmatrix}x\\y\\1\end{bmatrix} = K[R\,|\,t]\begin{bmatrix}X\\Y\\Z\\1\end{bmatrix} = P\,X_w$$</p>
+  <p>\(K\) (3x3) holds the intrinsics \((f_x,f_y,c_x,c_y)\); \([R|t]\) is the extrinsic pose (world&rarr;camera
+    rotation + translation); \(P=K[R|t]\) is that camera's 3x4 projection matrix.</p>
+
+  <h3>2. Recovering the "motion": pose per viewpoint via PnP</h3>
+  <p>Because the object is <strong>planar</strong>, the world frame is defined to sit on the object's own plane
+    (\(Z=0\)) with its known real-world size on that plane. A rectangle of width \(W\), height \(H\) then has
+    <em>known</em> world coordinates for its 4 corners:</p>
+  <p class="eq">$$(0,0,0),\ (W,0,0),\ (W,H,0),\ (0,H,0)$$</p>
+  <p>Clicking those same 4 corners in a photo gives 4 world&harr;image correspondences - exactly what
+    Perspective-n-Point (PnP) needs to solve for that photo's \((R,t)\) given \(K\):</p>
+  <p class="eq">$$\text{solvePnP}(\{X_{w,\text{corner}}\}, \{x_{\text{pixel}}\}, K)\ \rightarrow\ R,\ t$$</p>
+  <p>Repeating this once per photo gives 4 independent camera poses - the "motion" side of structure-from-motion.</p>
+
+  <h3>3. Recovering the "structure": triangulating the rest of the boundary</h3>
+  <p>Any <em>other</em> point on the boundary is <strong>not</strong> assumed known - its 3D position is
+    recovered from where it lands in the (now-known) cameras. For view \(i\) with \(P_i\), a 2D observation
+    \((x_i,y_i)\) of the same 3D point \(X\) satisfies \(x_i \times (P_iX) = 0\), linear in \(X\), giving 2 rows
+    per view:</p>
+  <p class="eq">$$x_i\,P_i^{(3)} - P_i^{(1)} = 0 \qquad y_i\,P_i^{(3)} - P_i^{(2)} = 0$$</p>
+  <p>(\(P^{(k)}\) = row \(k\) of \(P\)). Stacking these rows from all 4 views gives \(AX=0\); the least-squares
+    solution is the right singular vector of \(A\) with the smallest singular value (linear/DLT triangulation).
+    Doing this for every clicked boundary point recovers the object's 3D boundary.</p>
+
+  <h3>4. Built-in validation</h3>
+  <p>Two numbers below check the reconstruction rather than just trusting it: (a) the 4 corners are
+    re-triangulated <em>as if unknown</em> and compared back to the known rectangle - the <strong>corner
+    recovery error</strong>; (b) a plane is fit (via SVD) to every reconstructed point and its RMS distance is
+    the <strong>planarity residual</strong> - small for both confirms the pipeline, since the true object is
+    flat and its corners are known.</p>
+</div>
+
+{% if stage == 'upload' %}
+<div class="card">
+  <h2>Step A - object size + 4 photos</h2>
+  <p>Pick a flat rectangular object (a book cover, a box face, a picture, a laptop lid, a sheet of paper) and
+    measure its real width/height with a ruler <em>first</em>. Then take 4 photos of it from clearly different
+    viewpoints (different angle and/or distance for each) - keep the whole object in frame in all 4.</p>
+  <form method="POST" action="{{ url_for('hw5.sfm_upload') }}" enctype="multipart/form-data">
+    <label>Object width (mm, along the top edge)</label>
+    <input type="number" name="width_mm" value="210" step="0.1" required>
+    <label>Object height (mm, along the side edge)</label>
+    <input type="number" name="height_mm" value="297" step="0.1" required>
+    <label># extra boundary points to click per photo (besides the 4 corners)</label>
+    <input type="number" name="n_boundary" value="4" min="1" max="12" required>
+    <label><input type="checkbox" name="use_hw2_calib" checked style="width:auto; display:inline; margin-right:6px;">
+      Use saved HW2 camera calibration if available (rescaled to these photos' resolution); otherwise an
+      approximate 60&deg;-FOV camera matrix is used.</label>
+    <label>Viewpoint 1</label><input type="file" name="images" accept="image/*" required>
+    <label>Viewpoint 2</label><input type="file" name="images" accept="image/*" required>
+    <label>Viewpoint 3</label><input type="file" name="images" accept="image/*" required>
+    <label>Viewpoint 4</label><input type="file" name="images" accept="image/*" required>
+    <button type="submit">Continue to point marking</button>
+  </form>
+</div>
+{% endif %}
+
+{% if stage == 'click' %}
+<div class="card">
+  <h2>Step B - mark corresponding points on each photo</h2>
+  <p>On <strong>every</strong> photo, click the <strong>same {{ views.n_clicks }} physical points in the same
+    order</strong>:</p>
+  <ol>
+    <li>4 corners, in order <strong>top-left &rarr; top-right &rarr; bottom-right &rarr; bottom-left</strong>
+      of the {{ views.width_mm }}mm x {{ views.height_mm }}mm rectangle (red dots)</li>
+    <li>{{ views.n_boundary }} more points anywhere on the object's boundary/surface that you can reliably
+      re-identify in all 4 photos - e.g. logo corners, text corners, a notch (blue dots)</li>
+  </ol>
+  <p class="muted" id="globalStatus">0 / 4 images fully marked.</p>
+
+  <form method="POST" action="{{ url_for('hw5.sfm_run') }}" id="sfmForm">
+    <input type="hidden" name="width_mm" value="{{ views.width_mm }}">
+    <input type="hidden" name="height_mm" value="{{ views.height_mm }}">
+    <input type="hidden" name="n_boundary" value="{{ views.n_boundary }}">
+    <input type="hidden" name="use_hw2_calib" value="{{ 'on' if views.use_hw2_calib else '' }}">
+    <input type="hidden" name="image_urls" value='{{ views.image_urls | tojson }}'>
+    {% for i in range(4) %}
+    <input type="hidden" name="points_{{ i }}" id="pointsField{{ i }}">
+    {% endfor %}
+
+    <div class="comparison-grid">
+      {% for url in views.image_urls %}
+      <figure>
+        <canvas class="sfmCanvas" data-idx="{{ loop.index0 }}" data-src="{{ url }}"
+                style="cursor:crosshair; max-width:100%; border:1px solid var(--border);"></canvas>
+        <figcaption>viewpoint {{ loop.index }} - <span class="imgStatus" data-idx="{{ loop.index0 }}">0 / {{ views.n_clicks }} clicked</span>
+          <button type="button" class="undoBtn" data-idx="{{ loop.index0 }}">undo</button></figcaption>
+      </figure>
+      {% endfor %}
+    </div>
+
+    <button type="submit" id="sfmRunBtn" disabled style="margin-top:16px;">Compute 3D reconstruction</button>
+  </form>
+</div>
+
+<script>
+  const N_CLICKS = {{ views.n_clicks }};
+  const N_CORNERS = 4;
+  const state = {}; // idx -> {points: [...], img, scale}
+
+  document.querySelectorAll('.sfmCanvas').forEach(canvas => {
+    const idx = canvas.dataset.idx;
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    img.src = canvas.dataset.src;
+    state[idx] = { points: [], img, canvas, ctx };
+
+    img.onload = () => {
+      const maxWidth = 380;
+      const scale = Math.min(1, maxWidth / img.width);
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      canvas.dataset.scale = scale;
+      redraw(idx);
+    };
+
+    canvas.addEventListener('click', (e) => {
+      if (state[idx].points.length >= N_CLICKS) return;
+      const rect = canvas.getBoundingClientRect();
+      const scale = parseFloat(canvas.dataset.scale);
+      state[idx].points.push([(e.clientX - rect.left) / scale, (e.clientY - rect.top) / scale]);
+      redraw(idx);
+    });
+  });
+
+  document.querySelectorAll('.undoBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = btn.dataset.idx;
+      state[idx].points.pop();
+      redraw(idx);
+    });
+  });
+
+  function redraw(idx) {
+    const s = state[idx];
+    s.ctx.clearRect(0, 0, s.canvas.width, s.canvas.height);
+    s.ctx.drawImage(s.img, 0, 0, s.canvas.width, s.canvas.height);
+    const scale = parseFloat(s.canvas.dataset.scale);
+    s.points.forEach((p, i) => {
+      s.ctx.fillStyle = i < N_CORNERS ? 'red' : 'dodgerblue';
+      s.ctx.beginPath();
+      s.ctx.arc(p[0] * scale, p[1] * scale, 5, 0, 2 * Math.PI);
+      s.ctx.fill();
+      s.ctx.fillStyle = 'yellow';
+      s.ctx.font = '11px sans-serif';
+      s.ctx.fillText(i + 1, p[0] * scale + 6, p[1] * scale - 6);
+    });
+    document.querySelector('.imgStatus[data-idx="' + idx + '"]').innerText = s.points.length + ' / ' + N_CLICKS + ' clicked';
+    updateGlobalStatus();
+  }
+
+  function updateGlobalStatus() {
+    const done = Object.values(state).filter(s => s.points.length === N_CLICKS).length;
+    document.getElementById('globalStatus').innerText = done + ' / 4 images fully marked.';
+    document.getElementById('sfmRunBtn').disabled = done < 4;
+  }
+
+  document.getElementById('sfmForm').addEventListener('submit', () => {
+    for (let i = 0; i < 4; i++) {
+      document.getElementById('pointsField' + i).value = JSON.stringify(state[i].points);
+    }
+  });
+</script>
+{% endif %}
+
+{% if stage == 'result' %}
+<div class="card">
+  <h2>Recovered camera parameters</h2>
+  <p class="muted">K source: {{ result.k_source }}. Image size: {{ result.image_size[0] }} x {{ result.image_size[1] }}.</p>
+  <p><strong>K</strong> (shared intrinsics, all 4 views): <code>{{ result.K }}</code></p>
+  <table class="result-table">
+    <thead><tr><th>camera</th><th>rotation R</th><th>translation t (mm)</th><th>position C in world (mm)</th><th>solvePnP ok</th></tr></thead>
+    <tbody>
+      {% for c in result.cameras %}
+      <tr>
+        <td>{{ c.id }}</td>
+        <td><code>{{ c.R }}</code></td>
+        <td><code>{{ c.t }}</code></td>
+        <td><code>{{ c.C }}</code></td>
+        <td>{{ "yes" if c.ok else "no" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h2>Reconstruction quality</h2>
+  <div class="stat-grid">
+    <div class="stat-box"><div class="label">Planarity RMS residual</div><div class="value">{{ result.planarity_rms }} mm</div></div>
+    <div class="stat-box"><div class="label">Max corner recovery error</div><div class="value">{{ result.corner_recovery_error | max }} mm</div></div>
+  </div>
+  <p class="muted">Corner recovery error per corner (mm), corners re-triangulated as if their world position were
+    unknown: {{ result.corner_recovery_error }}. Small values here and a small planarity RMS are the evidence
+    that the pose recovery + triangulation pipeline is self-consistent on this object.</p>
+</div>
+
+<div class="card">
+  <h2>Reconstructed boundary</h2>
+  <div class="comparison-grid">
+    <figure><img src="{{ result.scene_url }}"><figcaption>3D: cameras + reconstructed boundary</figcaption></figure>
+    <figure><img src="{{ result.topdown_url }}"><figcaption>top-down (looking along the fitted plane normal)</figcaption></figure>
+  </div>
+  <p class="muted">Triangulated boundary points (world mm, Z should be near 0 since the object is planar):</p>
+  <pre style="background:#0f172a; color:#e2e8f0; padding:14px; border-radius:8px; overflow-x:auto;">{{ result.boundary_3d }}</pre>
+</div>
+
+<div class="card">
+  <h2>Source photos</h2>
+  <div class="comparison-grid">
+    {% for url in result.image_urls %}
+    <figure><img src="{{ url }}"><figcaption>viewpoint {{ loop.index }}</figcaption></figure>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

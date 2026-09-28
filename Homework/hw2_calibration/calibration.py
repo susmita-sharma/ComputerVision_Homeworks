@@ -83,9 +83,12 @@ def calibrate(object_points, image_points, image_size):
     return camera_matrix, dist_coeffs, mean_error, per_image_error
 
 
+DEFAULT_IMAGES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "calibration_images")
+
+
 def main():
     parser = argparse.ArgumentParser(description="OpenCV chessboard camera calibration")
-    parser.add_argument("--images", default="calibration_images", help="folder of calibration photos")
+    parser.add_argument("--images", default=DEFAULT_IMAGES_DIR, help="folder of calibration photos")
     parser.add_argument("--cols", type=int, default=9, help="inner corners across the board width")
     parser.add_argument("--rows", type=int, default=6, help="inner corners across the board height")
     parser.add_argument("--square", type=float, default=25.0, help="chessboard square size in mm")

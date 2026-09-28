@@ -7,15 +7,15 @@ import time
 import cv2
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 
-from Homework import STATIC_ROOT
 from . import rgb_boundary, thermal_boundary, mask_metrics
 
-hw4 = Blueprint("hw4", __name__, url_prefix="/hw4")
+hw4 = Blueprint("hw4", __name__, url_prefix="/hw4", template_folder="templates", static_folder="static")
 
-RGB_UPLOAD_DIR = os.path.join(STATIC_ROOT, "hw4", "rgb_uploads")
-THERMAL_UPLOAD_DIR = os.path.join(STATIC_ROOT, "hw4", "thermal_uploads")
-SAM2_UPLOAD_DIR = os.path.join(STATIC_ROOT, "hw4", "sam2_uploads")
-OUTPUT_DIR = os.path.join(STATIC_ROOT, "hw4", "outputs")
+MODULE_ROOT = os.path.dirname(os.path.abspath(__file__))
+RGB_UPLOAD_DIR = os.path.join(MODULE_ROOT, "static", "rgb_uploads")
+THERMAL_UPLOAD_DIR = os.path.join(MODULE_ROOT, "static", "thermal_uploads")
+SAM2_UPLOAD_DIR = os.path.join(MODULE_ROOT, "static", "sam2_uploads")
+OUTPUT_DIR = os.path.join(MODULE_ROOT, "static", "outputs")
 for d in (RGB_UPLOAD_DIR, THERMAL_UPLOAD_DIR, SAM2_UPLOAD_DIR, OUTPUT_DIR):
     os.makedirs(d, exist_ok=True)
 
@@ -36,7 +36,7 @@ def _load_resized(path):
 def _save_png(array_uint8, tag, stamp):
     filename = f"{stamp}_{tag}.png"
     cv2.imwrite(os.path.join(OUTPUT_DIR, filename), array_uint8)
-    return url_for("static", filename=f"hw4/outputs/{filename}")
+    return url_for("hw4.static", filename=f"outputs/{filename}")
 
 
 def _run_pipeline(image, seg, section, stamp, sam2_file):

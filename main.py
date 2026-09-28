@@ -7,15 +7,21 @@ from Homework.hw2_calibration import hw2
 from Homework.hw2_calibration.routes import get_current_calibration
 from Homework.hw3_fourier_blur import hw3
 from Homework.hw4_silhouette import hw4
+from Homework.hw5_motion_sfm import hw5
 
 
 def create_app():
-    app = Flask(__name__)
+    # no root-level static folder - each hwN_* package under Homework/ owns
+    # its own templates/ and static/ (uploads + outputs), registered as its
+    # blueprint's static_folder, so /hw2/static/..., /hw3/static/..., etc.
+    app = Flask(__name__, static_folder=None)
     app.secret_key = "csc8830-cv-hub-dev-key"  # fine for a local class demo, not for production
+    app.config["MAX_CONTENT_LENGTH"] = 300 * 1024 * 1024  # HW5 video uploads run bigger than the photo-only homeworks
 
     app.register_blueprint(hw2)
     app.register_blueprint(hw3)
     app.register_blueprint(hw4)
+    app.register_blueprint(hw5)
 
     @app.route("/")
     def overview():

@@ -1,0 +1,191 @@
+{% extends "shell.html" %}
+{% block content %}
+<div class="card">
+  <h1>HW5 Step 2 &middot; Motion Tracking, Bilinear Interpolation &amp; Validation</h1>
+  <p class="muted">Derives the two-frame point-tracking problem from first principles, then runs a from-scratch
+    implementation and checks its predicted pixel locations against OpenCV's reference tracker on a real frame
+    pair.</p>
+</div>
+
+<div class="theory-box">
+  <h3>1. Brightness constancy &rarr; the optical flow equation</h3>
+  <p>Assume a scene point keeps its brightness as it moves by \((dx, dy)\) over time \(dt\):</p>
+  <p class="eq">$$I(x+dx,\ y+dy,\ t+dt) = I(x,y,t)$$</p>
+  <p>First-order Taylor-expand the left side around \((x,y,t)\):</p>
+  <p class="eq">$$I(x,y,t) + I_x\,dx + I_y\,dy + I_t\,dt \approx I(x,y,t)$$</p>
+  <p>Divide by \(dt\) and let \(u=dx/dt,\ v=dy/dt\) be the flow velocity. The \(I(x,y,t)\) terms cancel, leaving the
+    <strong>optical flow equation</strong>:</p>
+  <p class="eq">$$I_x u + I_y v + I_t = 0$$</p>
+  <p>This is one equation in two unknowns \((u,v)\) at a single pixel - the <strong>aperture problem</strong>: the
+    gradient only constrains flow along the gradient direction, not perpendicular to it.</p>
+
+  <h3>2. Lucas-Kanade: a window resolves the aperture problem</h3>
+  <p>Assume \((u,v)\) is constant over a small window \(W\) (typically 7-21 px) around the point. Every pixel in
+    \(W\) then gives one copy of the flow equation, turning it into an overdetermined least-squares problem:</p>
+  <p class="eq">$$\min_{u,v} \sum_{(x,y)\in W} \big(I_x u + I_y v + I_t\big)^2$$</p>
+  <p>Setting the gradient w.r.t. \((u,v)\) to zero gives the normal equations:</p>
+  <p class="eq">$$
+  \underbrace{\begin{bmatrix}\sum I_x^2 & \sum I_xI_y \\ \sum I_xI_y & \sum I_y^2\end{bmatrix}}_{A^TA}
+  \begin{bmatrix}u\\v\end{bmatrix} =
+  \underbrace{-\begin{bmatrix}\sum I_xI_t \\ \sum I_yI_t\end{bmatrix}}_{-A^Tb}
+  $$</p>
+  <p>\(A^TA\) is invertible exactly when the window has gradient energy in two independent directions - a
+    corner-like patch, not a flat region or a single straight edge (the same 2x2 "structure tensor" Harris corner
+    detection is built on).</p>
+
+  <h3>3. Setting up the two-frame tracking problem</h3>
+  <p>Given frame 1 \(I_1\), frame 2 \(I_2\), and a point \((x_0,y_0)\) in \(I_1\), tracking asks: find the
+    displacement \((u,v)\) minimizing the sum-of-squared-differences over a window:</p>
+  <p class="eq">$$E(u,v) = \sum_{(x,y)\in W} \big(I_2(x+u,\ y+v) - I_1(x,y)\big)^2$$</p>
+  <p>\(I_t\) above is really the finite difference \(I_2 - I_1\), which is only a good linear approximation for
+    <em>small</em> \((u,v)\). For a real displacement of several pixels, Newton's method is used: solve the LK
+    normal equations for a correction, update \((u,v)\), re-sample \(I_2\) at the new (fractional!) warped
+    location, recompute the residual, and repeat until the correction is smaller than \(\varepsilon\). Because the
+    warped sample point is essentially never at an integer pixel, every one of those re-samples needs
+    <strong>bilinear interpolation</strong>.</p>
+
+  <h3>4. Bilinear interpolation</h3>
+  <p>To evaluate \(I_2\) at a fractional coordinate \((x,y)\), let \(x_0=\lfloor x\rfloor,\ x_1=x_0+1,\
+    y_0=\lfloor y\rfloor,\ y_1=y_0+1\), and \(w_x = x-x_0,\ w_y = y-y_0\). Interpolate linearly along \(x\) at
+    both rows, then linearly between those two results along \(y\):</p>
+  <p class="eq">$$R_0 = (1-w_x)I(x_0,y_0) + w_x I(x_1,y_0)$$</p>
+  <p class="eq">$$R_1 = (1-w_x)I(x_0,y_1) + w_x I(x_1,y_1)$$</p>
+  <p class="eq">$$I(x,y) \approx (1-w_y) R_0 + w_y R_1$$</p>
+  <p>Expanded, this is the familiar single bilinear form:</p>
+  <p class="eq">$$I(x,y)\approx I(x_0,y_0)(1{-}w_x)(1{-}w_y) + I(x_1,y_0)w_x(1{-}w_y) + I(x_0,y_1)(1{-}w_x)w_y + I(x_1,y_1)w_xw_y$$</p>
+  <p class="muted">Implemented from scratch in <code>Homework/hw5_motion_sfm/bilinear.py</code> (no
+    <code>cv2.remap</code>) and verified against it in <code>tests/test_hw5_bilinear.py</code> - agreement to
+    &lt;0.01 intensity units at random fractional coordinates.</p>
+</div>
+
+{% if not prev_url or not next_url %}
+<div class="card">
+  <h2>Upload two consecutive frames</h2>
+  <p class="muted">Or go run <a href="{{ url_for('hw5.flow_view') }}">Optical Flow</a> first and use its
+    "use this pair" button, which skips this upload step.</p>
+  <form method="POST" action="{{ url_for('hw5.tracking_upload') }}" enctype="multipart/form-data">
+    <label>Frame t</label>
+    <input type="file" name="prev_frame" accept="image/*" required>
+    <label>Frame t+1 (the very next frame)</label>
+    <input type="file" name="next_frame" accept="image/*" required>
+    <button type="submit">Continue to point picking</button>
+  </form>
+</div>
+{% else %}
+<div class="card">
+  <h2>Pick points to track</h2>
+  <p>Click a handful of points on <strong>frame t</strong> below (textured spots - corners, edges - track best;
+    flat regions will fail to converge, which is itself evidence of the aperture problem). Frame t+1 is shown next
+    to it for reference only.</p>
+  <div class="comparison-grid" style="grid-template-columns: 1fr 1fr;">
+    <figure>
+      <canvas id="clickCanvas" style="cursor:crosshair; max-width:100%; border:1px solid var(--border);"></canvas>
+      <figcaption>frame t - click points here</figcaption>
+    </figure>
+    <figure>
+      <img id="nextImg" src="{{ next_url }}" style="max-width:100%; border-radius:5px;">
+      <figcaption>frame t+1</figcaption>
+    </figure>
+  </div>
+  <p class="muted" id="clickStatus">Click points, then hit Run.</p>
+
+  <form method="POST" action="{{ url_for('hw5.tracking_run') }}" id="trackForm">
+    <input type="hidden" name="prev_url" value="{{ prev_url }}">
+    <input type="hidden" name="next_url" value="{{ next_url }}">
+    <input type="hidden" name="points" id="pointsField">
+    <label>LK window size (px)</label>
+    <input type="number" name="window" value="21" min="7" max="41" step="2">
+    <button type="button" id="undoBtn">Undo last point</button>
+    <button type="submit" id="runBtn" disabled>Run tracking + validate</button>
+  </form>
+
+  <script>
+    const canvas = document.getElementById('clickCanvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    img.src = "{{ prev_url }}";
+    let points = [];
+
+    function redraw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const scale = parseFloat(canvas.dataset.scale);
+      points.forEach((p, i) => {
+        ctx.fillStyle = 'red';
+        ctx.beginPath();
+        ctx.arc(p[0] * scale, p[1] * scale, 5, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.fillStyle = 'yellow';
+        ctx.font = '12px sans-serif';
+        ctx.fillText(i + 1, p[0] * scale + 7, p[1] * scale - 7);
+      });
+      document.getElementById('runBtn').disabled = points.length === 0;
+      document.getElementById('clickStatus').innerText = points.length + ' point(s) picked.';
+    }
+
+    img.onload = () => {
+      const maxWidth = 500;
+      const scale = Math.min(1, maxWidth / img.width);
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      canvas.dataset.scale = scale;
+      document.getElementById('nextImg').style.maxWidth = canvas.width + 'px';
+      redraw();
+    };
+
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const scale = parseFloat(canvas.dataset.scale);
+      points.push([(e.clientX - rect.left) / scale, (e.clientY - rect.top) / scale]);
+      redraw();
+    });
+
+    document.getElementById('undoBtn').addEventListener('click', () => {
+      points.pop();
+      redraw();
+    });
+
+    document.getElementById('trackForm').addEventListener('submit', () => {
+      document.getElementById('pointsField').value = JSON.stringify(points);
+    });
+  </script>
+</div>
+{% endif %}
+
+{% if result %}
+<div class="card">
+  <h2>Validation result</h2>
+  <p class="muted">Red = from-scratch Lucas-Kanade prediction (the theory above, actually run). Green = OpenCV's
+    pyramidal LK reference (an independently-optimized implementation of the same brightness-constancy math),
+    used here as the "actual" pixel location since no external ground truth exists for a real video. The two
+    should land within a fraction of a pixel of each other when the derivation and the implementation are both
+    correct.</p>
+  <img src="{{ result.annotated_url }}" style="max-width:100%; border-radius:8px; border:1px solid var(--border);">
+  <div class="stat-grid">
+    <div class="stat-box"><div class="label">Mean agreement error</div><div class="value">{{ "%.3f"|format(result.mean_err) }} px</div></div>
+    <div class="stat-box"><div class="label">Max agreement error</div><div class="value">{{ "%.3f"|format(result.max_err) }} px</div></div>
+    <div class="stat-box"><div class="label">Window size</div><div class="value">{{ result.window }} px</div></div>
+  </div>
+
+  <table class="result-table" style="margin-top:16px;">
+    <thead><tr>
+      <th>pt</th><th>x0,y0</th><th>manual pred (x,y)</th><th>OpenCV actual (x,y)</th>
+      <th>manual displacement</th><th>agreement err (px)</th><th>converged</th>
+    </tr></thead>
+    <tbody>
+      {% for r in result.rows %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ "%.1f"|format(r.x0) }}, {{ "%.1f"|format(r.y0) }}</td>
+        <td>{{ "%.2f"|format(r.x_pred) }}, {{ "%.2f"|format(r.y_pred) }}</td>
+        <td>{{ "%.2f"|format(r.x_actual) }}, {{ "%.2f"|format(r.y_actual) }}</td>
+        <td>{{ "%.2f"|format(r.dx) }}, {{ "%.2f"|format(r.dy) }}</td>
+        <td>{{ "%.3f"|format(r.agreement_err_px) }}</td>
+        <td>{{ "yes" if r.converged else "no (flat region?)" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

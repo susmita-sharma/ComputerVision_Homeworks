@@ -1,0 +1,12 @@
+{% extends "shell.html" %}
+{% block content %}
+<div class="card">
+  <h1>HW5 &middot; Optical Flow, Tracking &amp; Structure from Motion</h1>
+  <p class="muted">Three linked steps, run on real video/photos you supply.</p>
+  <ol>
+    <li><a href="{{ url_for('hw5.flow_view') }}">Optical Flow</a></li>
+    <li><a href="{{ url_for('hw5.tracking_view') }}">Motion Tracking &amp; Bilinear Interpolation</a></li>
+    <li><a href="{{ url_for('hw5.sfm_view') }}">Structure from Motion</a></li>
+  </ol>
+</div>
+{% endblock %}

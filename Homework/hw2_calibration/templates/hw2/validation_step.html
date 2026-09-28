@@ -253,4 +253,17 @@
   </div>
 </div>
 {% endif %}
+
+<div class="modern-card">
+  <h2 class="section-title">Offline example output</h2>
+  <p class="section-subtitle">Generated from the repo's own 21-object <code>result.csv</code>, so you can see the report this page produces before uploading your own CSV.</p>
+  <div class="plot-container">
+    <div class="plot-card">
+      <img src="{{ url_for('hw2.static', filename='demo/error_by_object.png') }}" alt="Example: actual vs. measured length">
+    </div>
+    <div class="plot-card">
+      <img src="{{ url_for('hw2.static', filename='demo/percent_error.png') }}" alt="Example: percent error per object">
+    </div>
+  </div>
+</div>
 {% endblock %}

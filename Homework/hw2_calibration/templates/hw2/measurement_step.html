@@ -98,4 +98,11 @@
   <p class="muted">Computed as L = (pixel_distance x Z) / f, using the calibrated focal length in pixels and the distance you entered. See the report for the full derivation.</p>
 </div>
 {% endif %}
+
+<div class="card">
+  <h2>Offline example output</h2>
+  <p class="muted">Two points clicked on a real object photo from the repo, converted to a real-world length with the calibrated camera matrix -
+    this is what clicking through the form above produces.</p>
+  <img src="{{ url_for('hw2.static', filename='demo/measurement_example.jpg') }}" style="max-width:100%; border-radius:8px; border:1px solid var(--border);">
+</div>
 {% endblock %}
