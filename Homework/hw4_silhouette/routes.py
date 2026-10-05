@@ -7,6 +7,7 @@ import time
 import cv2
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 
+from Homework import samples
 from . import rgb_boundary, thermal_boundary, mask_metrics
 
 hw4 = Blueprint("hw4", __name__, url_prefix="/hw4", template_folder="templates", static_folder="static")
@@ -55,6 +56,7 @@ def _run_pipeline(image, seg, section, stamp, sam2_file):
         sam2_file.save(sam2_path)
         sam2_mask = mask_metrics.load_binary_mask(sam2_path, seg["boundary_mask"].shape)
         metrics = mask_metrics.compare_masks(seg["boundary_mask"], sam2_mask)
+        metrics = {k: (v.item() if hasattr(v, "item") else v) for k, v in metrics.items()}
         overlay_diff = mask_metrics.agreement_overlay(seg["boundary_mask"], sam2_mask)
         comparison = {
             "metrics": metrics,
@@ -65,9 +67,22 @@ def _run_pipeline(image, seg, section, stamp, sam2_file):
     return urls, comparison
 
 
+def _render(rgb_result=None, thermal_result=None, rgb_offer=None, thermal_offer=None):
+    """Live results where we have them; otherwise each section shows its
+    saved offline sample (if any)."""
+    rgb_sample = None if rgb_result else samples.load("hw4", "rgb")
+    thermal_sample = None if thermal_result else samples.load("hw4", "thermal")
+    return render_template(
+        "hw4/boundary_extraction.html",
+        rgb_result=rgb_result or rgb_sample, thermal_result=thermal_result or thermal_sample,
+        rgb_sample_info=rgb_sample and rgb_sample["_sample"],
+        thermal_sample_info=thermal_sample and thermal_sample["_sample"],
+        rgb_offer=rgb_offer, thermal_offer=thermal_offer)
+
+
 @hw4.route("/", methods=["GET"])
 def home():
-    return render_template("hw4/boundary_extraction.html", rgb_result=None, thermal_result=None)
+    return _render()
 
 
 @hw4.route("/rgb", methods=["POST"])
@@ -90,7 +105,7 @@ def process_rgb():
     urls, comparison = _run_pipeline(image, seg, "rgb", stamp, request.files.get("sam2_mask"))
 
     rgb_result = {**urls, "comparison": comparison}
-    return render_template("hw4/boundary_extraction.html", rgb_result=rgb_result, thermal_result=None)
+    return _render(rgb_result=rgb_result, rgb_offer=samples.offer("hw4", "rgb", rgb_result))
 
 
 @hw4.route("/thermal", methods=["POST"])
@@ -115,4 +130,4 @@ def process_thermal():
     urls, comparison = _run_pipeline(image, seg, "thermal", stamp, request.files.get("sam2_mask"))
 
     thermal_result = {**urls, "comparison": comparison}
-    return render_template("hw4/boundary_extraction.html", rgb_result=None, thermal_result=thermal_result)
+    return _render(thermal_result=thermal_result, thermal_offer=samples.offer("hw4", "thermal", thermal_result))

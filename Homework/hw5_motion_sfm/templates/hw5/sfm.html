@@ -1,4 +1,5 @@
 {% extends "shell.html" %}
+{% import "_samples.html" as smp with context %}
 {% block content %}
 <div class="card">
   <h1>HW5 Step 3 &middot; Structure from Motion (Planar Object, 4 Viewpoints)</h1>
@@ -13,15 +14,25 @@
   <p>\(K\) (3x3) holds the intrinsics \((f_x,f_y,c_x,c_y)\); \([R|t]\) is the extrinsic pose (world&rarr;camera
     rotation + translation); \(P=K[R|t]\) is that camera's 3x4 projection matrix.</p>
 
-  <h3>2. Recovering the "motion": pose per viewpoint via PnP</h3>
-  <p>Because the object is <strong>planar</strong>, the world frame is defined to sit on the object's own plane
-    (\(Z=0\)) with its known real-world size on that plane. A rectangle of width \(W\), height \(H\) then has
-    <em>known</em> world coordinates for its 4 corners:</p>
-  <p class="eq">$$(0,0,0),\ (W,0,0),\ (W,H,0),\ (0,H,0)$$</p>
-  <p>Clicking those same 4 corners in a photo gives 4 world&harr;image correspondences - exactly what
-    Perspective-n-Point (PnP) needs to solve for that photo's \((R,t)\) given \(K\):</p>
-  <p class="eq">$$\text{solvePnP}(\{X_{w,\text{corner}}\}, \{x_{\text{pixel}}\}, K)\ \rightarrow\ R,\ t$$</p>
-  <p>Repeating this once per photo gives 4 independent camera poses - the "motion" side of structure-from-motion.</p>
+
+  <h3>2. Recovering the "motion": each camera's pose from the 4 known corners</h3>
+  <p>Because the object is <strong>planar</strong>, the world frame is placed on the object itself: origin at the
+    top-left corner, \(X\) along the top edge, \(Y\) down the side, \(Z=0\) on the surface. With the measured width
+    \(W\) and height \(H\), the corners have <em>known</em> world coordinates \((0,0,0),\ (W,0,0),\ (W,H,0),\ (0,H,0)\).</p>
+  <p><strong>2a. Homography.</strong> With \(Z=0\) the third column of \(R\) drops out:</p>
+  <p class="eq">$$s\begin{bmatrix}x\\y\\1\end{bmatrix} = K\,[\,r_1\ r_2\ r_3\ t\,]\begin{bmatrix}X\\Y\\0\\1\end{bmatrix}
+     = \underbrace{K\,[\,r_1\ r_2\ t\,]}_{H}\begin{bmatrix}X\\Y\\1\end{bmatrix}$$</p>
+  <p>\(H\) is a 3&times;3 homography. Eliminating \(s\) (for \(h = \text{vec}(H)\)) gives two linear equations per corner:</p>
+  <p class="eq">$$\begin{bmatrix}-X & -Y & -1 & 0 & 0 & 0 & xX & xY & x\\ 0 & 0 & 0 & -X & -Y & -1 & yX & yY & y\end{bmatrix} h = 0$$</p>
+  <p>4 corners give \(A\in\mathbb R^{8\times9}\), and \(h\) is the right singular vector of \(A\) with the smallest
+    singular value (DLT).</p>
+  <p><strong>2b. Pose from \(H\).</strong> \(B = K^{-1}H = \lambda[\,r_1\ r_2\ t\,]\). Since \(\|r_1\|=1\):
+    \(\lambda = 1/\|b_1\|\), \(r_1 = \lambda b_1,\ r_2 = \lambda b_2,\ r_3 = r_1\times r_2,\ t = \lambda b_3\). The sign
+    is chosen so that \(t_z>0\) (the object is in front of the camera). Noise makes \([r_1 r_2 r_3]\) slightly
+    non-orthogonal, so it is projected to the nearest rotation \(R = UV^T\) (from its SVD).</p>
+  <p><strong>2c. Refinement.</strong> <code>cv2.solvePnP</code> starts from such an estimate and minimises the
+    reprojection error. The result shows both, and how far apart they are. The camera's position in the world is
+    \(C = -R^Tt\). Doing this once per photo gives 4 camera poses, which is the "motion".</p>
 
   <h3>3. Recovering the "structure": triangulating the rest of the boundary</h3>
   <p>Any <em>other</em> point on the boundary is <strong>not</strong> assumed known - its 3D position is
@@ -39,24 +50,41 @@
     recovery error</strong>; (b) a plane is fit (via SVD) to every reconstructed point and its RMS distance is
     the <strong>planarity residual</strong> - small for both confirms the pipeline, since the true object is
     flat and its corners are known.</p>
+
+  <h3>5. Camera intrinsics \(K\)</h3>
+  <p>In order of preference: (1) your HW2 chessboard calibration, if these photos came from the same camera;
+    (2) the photo's EXIF 35&nbsp;mm-equivalent focal length \(f_{35}\), using
+    \(f_{px} = f_{35}/43.27\cdot\sqrt{w^2+h^2}\) (43.27&nbsp;mm is the diagonal of a 35&nbsp;mm frame) with the
+    principal point at the image centre; (3) an assumed 60&deg; horizontal field of view. The results report
+    which one was used.</p>
 </div>
 
 {% if stage == 'upload' %}
+{% if last_run %}<div class="card"><p>Your last reconstruction this session: <a href="{{ last_run }}">open result &rarr;</a></p></div>{% endif %}
 <div class="card">
-  <h2>Step A - object size + 4 photos</h2>
-  <p>Pick a flat rectangular object (a book cover, a box face, a picture, a laptop lid, a sheet of paper) and
-    measure its real width/height with a ruler <em>first</em>. Then take 4 photos of it from clearly different
-    viewpoints (different angle and/or distance for each) - keep the whole object in frame in all 4.</p>
+  <h2>Step A &middot; Capture and upload 4 photos</h2>
+  <ol>
+    <li>Pick a <strong>flat rectangular</strong> object with some recognisable marks on it, e.g. a book cover, a
+      cereal-box face, a framed picture, a laptop lid, or a printed page with a logo.</li>
+    <li>Measure its width and height with a ruler.</li>
+    <li>Take 4 photos with the <strong>same phone/camera, same zoom, same orientation</strong> (don't mix portrait
+      and landscape) from clearly different positions: e.g. front-left, front-right, high above, and low at a
+      steep angle. Keep the whole object in frame. Upload the original files so the EXIF focal length is kept.</li>
+    <li>Choose 2-8 extra points you can find in every photo (logo corners, text corners, edge midpoints, a notch).
+      These are the points that will be triangulated.</li>
+  </ol>
   <form method="POST" action="{{ url_for('hw5.sfm_upload') }}" enctype="multipart/form-data">
-    <label>Object width (mm, along the top edge)</label>
+    <label>Object width (mm, top edge: corner 1 &rarr; corner 2)</label>
     <input type="number" name="width_mm" value="210" step="0.1" required>
-    <label>Object height (mm, along the side edge)</label>
+    <label>Object height (mm, side edge: corner 2 &rarr; corner 3)</label>
     <input type="number" name="height_mm" value="297" step="0.1" required>
-    <label># extra boundary points to click per photo (besides the 4 corners)</label>
+    <label># extra boundary/surface points to click per photo (besides the 4 corners)</label>
     <input type="number" name="n_boundary" value="4" min="1" max="12" required>
-    <label><input type="checkbox" name="use_hw2_calib" checked style="width:auto; display:inline; margin-right:6px;">
-      Use saved HW2 camera calibration if available (rescaled to these photos' resolution); otherwise an
-      approximate 60&deg;-FOV camera matrix is used.</label>
+    <label><input type="checkbox" name="use_hw2_calib" style="width:auto; display:inline; margin-right:6px;">
+      Use the saved HW2 camera calibration (only if these photos are from the same camera). Otherwise the EXIF focal
+      length is used, or a 60&deg; FOV assumption.</label>
+    <label>Capture notes (camera model, where each photo was taken from; saved in the report)</label>
+    <input type="text" name="notes" placeholder="e.g. iPhone 13, 1x lens; v1 front-left ~50cm, v2 right, v3 above, v4 low angle" style="max-width:100%;">
     <label>Viewpoint 1</label><input type="file" name="images" accept="image/*" required>
     <label>Viewpoint 2</label><input type="file" name="images" accept="image/*" required>
     <label>Viewpoint 3</label><input type="file" name="images" accept="image/*" required>
@@ -85,20 +113,43 @@
     <input type="hidden" name="n_boundary" value="{{ views.n_boundary }}">
     <input type="hidden" name="use_hw2_calib" value="{{ 'on' if views.use_hw2_calib else '' }}">
     <input type="hidden" name="image_urls" value='{{ views.image_urls | tojson }}'>
+    <input type="hidden" name="notes" value="{{ views.notes }}">
     {% for i in range(4) %}
     <input type="hidden" name="points_{{ i }}" id="pointsField{{ i }}">
     {% endfor %}
 
-    <div class="comparison-grid">
+    <style>
+      .mark-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; margin-top: 14px; }
+      .mark-grid.single { grid-template-columns: 1fr; }
+      .mark-grid figure.active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(46,111,158,.25); }
+      .mark-grid figure { margin: 0; background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 10px; position: relative; }
+      .mark-grid canvas { width: 100%; height: auto; display: block; cursor: crosshair; border-radius: 4px; }
+      .mark-grid figcaption { font-size: 13px; color: #5b6672; margin-top: 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+      .mark-grid figcaption button { margin: 0; padding: 4px 10px; font-size: 12px; background: #64748b; }
+      .next-hint { font-weight: 600; color: #b91c1c; }
+      .next-hint.done { color: #146c2e; }
+      #loupe { position: fixed; width: 180px; height: 180px; border: 2px solid #1c2b36; border-radius: 50%;
+        pointer-events: none; display: none; z-index: 50; box-shadow: 0 4px 14px rgba(0,0,0,.35); background: #000; }
+    </style>
+    <p class="muted">Precision tips: a magnifier follows your cursor. After clicking, fine-tune the last point with the
+      <strong>arrow keys</strong> (1 photo pixel per press, hold <strong>Shift</strong> for 10) while watching the
+      magnifier. Bigger photos also help:
+      <button type="button" id="layoutBtn" style="margin:0 0 0 4px; padding:4px 10px; font-size:12px;">1 photo per row</button></p>
+    <div class="mark-grid" id="markGrid">
       {% for url in views.image_urls %}
       <figure>
-        <canvas class="sfmCanvas" data-idx="{{ loop.index0 }}" data-src="{{ url }}"
-                style="cursor:crosshair; max-width:100%; border:1px solid var(--border);"></canvas>
-        <figcaption>viewpoint {{ loop.index }} - <span class="imgStatus" data-idx="{{ loop.index0 }}">0 / {{ views.n_clicks }} clicked</span>
-          <button type="button" class="undoBtn" data-idx="{{ loop.index0 }}">undo</button></figcaption>
+        <canvas class="sfmCanvas" data-idx="{{ loop.index0 }}" data-src="{{ url }}"></canvas>
+        <figcaption>
+          <strong>Viewpoint {{ loop.index }}</strong>
+          <span class="imgStatus" data-idx="{{ loop.index0 }}">0 / {{ views.n_clicks }}</span>
+          <span class="next-hint" data-idx="{{ loop.index0 }}"></span>
+          <button type="button" class="undoBtn" data-idx="{{ loop.index0 }}">undo</button>
+          <button type="button" class="clearBtn" data-idx="{{ loop.index0 }}">clear</button>
+        </figcaption>
       </figure>
       {% endfor %}
     </div>
+    <canvas id="loupe" width="180" height="180"></canvas>
 
     <button type="submit" id="sfmRunBtn" disabled style="margin-top:16px;">Compute 3D reconstruction</button>
   </form>
@@ -107,56 +158,125 @@
 <script>
   const N_CLICKS = {{ views.n_clicks }};
   const N_CORNERS = 4;
-  const state = {}; // idx -> {points: [...], img, scale}
+  const CORNER_NAMES = ['C1 top-left', 'C2 top-right', 'C3 bottom-right', 'C4 bottom-left'];
+  const MAX_CANVAS = 1600;   // internal canvas resolution (display size is set by CSS)
+  const state = {};          // idx -> {points (ORIGINAL image px), img, canvas, ctx, k}
+  const loupe = document.getElementById('loupe');
+  const lctx = loupe.getContext('2d');
+  const ZOOM = 4;
+
+  // Convert a mouse event to ORIGINAL image pixel coordinates, using the
+  // canvas's real on-screen size - correct however much CSS scales it.
+  function toImage(s, e) {
+    const r = s.canvas.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width * s.img.naturalWidth;
+    const y = (e.clientY - r.top) / r.height * s.img.naturalHeight;
+    return [Math.max(0, Math.min(s.img.naturalWidth - 1, x)), Math.max(0, Math.min(s.img.naturalHeight - 1, y))];
+  }
 
   document.querySelectorAll('.sfmCanvas').forEach(canvas => {
     const idx = canvas.dataset.idx;
-    const ctx = canvas.getContext('2d');
     const img = new Image();
-    img.src = canvas.dataset.src;
-    state[idx] = { points: [], img, canvas, ctx };
-
+    const s = state[idx] = { points: [], img, canvas, ctx: canvas.getContext('2d'), k: 1 };
     img.onload = () => {
-      const maxWidth = 380;
-      const scale = Math.min(1, maxWidth / img.width);
-      canvas.width = img.width * scale;
-      canvas.height = img.height * scale;
-      canvas.dataset.scale = scale;
+      s.k = Math.min(1, MAX_CANVAS / Math.max(img.naturalWidth, img.naturalHeight));  // canvas px per image px
+      canvas.width = Math.round(img.naturalWidth * s.k);
+      canvas.height = Math.round(img.naturalHeight * s.k);
       redraw(idx);
     };
+    img.src = canvas.dataset.src;
 
     canvas.addEventListener('click', (e) => {
-      if (state[idx].points.length >= N_CLICKS) return;
-      const rect = canvas.getBoundingClientRect();
-      const scale = parseFloat(canvas.dataset.scale);
-      state[idx].points.push([(e.clientX - rect.left) / scale, (e.clientY - rect.top) / scale]);
+      setActive(idx);
+      if (s.points.length >= N_CLICKS || !img.naturalWidth) return;
+      s.points.push(toImage(s, e));
       redraw(idx);
+      drawLoupe(s, e);
     });
+    canvas.addEventListener('mousemove', (e) => drawLoupe(s, e));
+    canvas.addEventListener("mouseleave", () => { loupe.style.display = "none"; });
+    canvas.addEventListener("mouseenter", () => setActive(idx));
   });
 
-  document.querySelectorAll('.undoBtn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const idx = btn.dataset.idx;
-      state[idx].points.pop();
-      redraw(idx);
-    });
+  let active = null;
+  function setActive(idx) {
+    active = idx;
+    document.querySelectorAll('.mark-grid figure').forEach(f => f.classList.remove('active'));
+    state[idx].canvas.parentElement.classList.add('active');
+  }
+
+  // arrow keys nudge the last point of the active photo by 1 image px (Shift: 10)
+  document.addEventListener('keydown', (e) => {
+    const d = {ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1]}[e.key];
+    if (!d || active === null || !state[active].points.length) return;
+    e.preventDefault();
+    const s = state[active], p = s.points[s.points.length - 1], step = e.shiftKey ? 10 : 1;
+    p[0] = Math.max(0, Math.min(s.img.naturalWidth - 1, p[0] + d[0] * step));
+    p[1] = Math.max(0, Math.min(s.img.naturalHeight - 1, p[1] + d[1] * step));
+    redraw(active);
+    const r = s.canvas.getBoundingClientRect();
+    drawLoupe(s, null, p);
+    loupe.style.left = (r.left + p[0] / s.img.naturalWidth * r.width + 24) + 'px';
+    loupe.style.top = Math.max(0, r.top + p[1] / s.img.naturalHeight * r.height - 200) + 'px';
   });
+
+  document.getElementById('layoutBtn').addEventListener('click', (e) => {
+    const g = document.getElementById('markGrid');
+    g.classList.toggle('single');
+    e.target.innerText = g.classList.contains('single') ? '2 photos per row' : '1 photo per row';
+    Object.keys(state).forEach(redraw);
+  });
+
+  function drawLoupe(s, e, at) {
+    if (!s.img.naturalWidth) return;
+    const [x, y] = at || toImage(s, e);
+    const src = loupe.width / ZOOM;   // source window in canvas px
+    lctx.imageSmoothingEnabled = false;
+    lctx.fillStyle = '#000';
+    lctx.fillRect(0, 0, loupe.width, loupe.height);
+    lctx.drawImage(s.canvas, x * s.k - src / 2, y * s.k - src / 2, src, src, 0, 0, loupe.width, loupe.height);
+    lctx.strokeStyle = 'rgba(255,255,0,.9)';
+    lctx.lineWidth = 1;
+    lctx.beginPath();
+    lctx.moveTo(loupe.width / 2, 0); lctx.lineTo(loupe.width / 2, loupe.height);
+    lctx.moveTo(0, loupe.height / 2); lctx.lineTo(loupe.width, loupe.height / 2);
+    lctx.stroke();
+    if (e) {
+      loupe.style.left = (e.clientX + 24) + 'px';
+      loupe.style.top = (e.clientY - 200 < 0 ? e.clientY + 24 : e.clientY - 200) + 'px';
+    }
+    loupe.style.display = 'block';
+  }
 
   function redraw(idx) {
     const s = state[idx];
-    s.ctx.clearRect(0, 0, s.canvas.width, s.canvas.height);
+    if (!s.img.naturalWidth) return;
     s.ctx.drawImage(s.img, 0, 0, s.canvas.width, s.canvas.height);
-    const scale = parseFloat(s.canvas.dataset.scale);
+    // marker size in canvas px so it looks the same on screen whatever the photo size
+    const disp = s.canvas.getBoundingClientRect().width || s.canvas.width;
+    const u = s.canvas.width / disp;
     s.points.forEach((p, i) => {
-      s.ctx.fillStyle = i < N_CORNERS ? 'red' : 'dodgerblue';
+      const x = p[0] * s.k, y = p[1] * s.k;
+      const col = i < N_CORNERS ? '#ef4444' : '#0ea5e9';
+      s.ctx.lineWidth = 1.5 * u;
+      s.ctx.strokeStyle = col;
       s.ctx.beginPath();
-      s.ctx.arc(p[0] * scale, p[1] * scale, 5, 0, 2 * Math.PI);
-      s.ctx.fill();
-      s.ctx.fillStyle = 'yellow';
-      s.ctx.font = '11px sans-serif';
-      s.ctx.fillText(i + 1, p[0] * scale + 6, p[1] * scale - 6);
+      s.ctx.moveTo(x - 9 * u, y); s.ctx.lineTo(x + 9 * u, y);
+      s.ctx.moveTo(x, y - 9 * u); s.ctx.lineTo(x, y + 9 * u);
+      s.ctx.stroke();
+      s.ctx.beginPath(); s.ctx.arc(x, y, 5 * u, 0, 2 * Math.PI); s.ctx.stroke();
+      s.ctx.font = `bold ${13 * u}px sans-serif`;
+      s.ctx.lineWidth = 3 * u; s.ctx.strokeStyle = 'black';
+      const label = i < N_CORNERS ? 'C' + (i + 1) : 'B' + (i - N_CORNERS + 1);
+      s.ctx.strokeText(label, x + 8 * u, y - 8 * u);
+      s.ctx.fillStyle = col === '#ef4444' ? '#fecaca' : '#bae6fd';
+      s.ctx.fillText(label, x + 8 * u, y - 8 * u);
     });
-    document.querySelector('.imgStatus[data-idx="' + idx + '"]').innerText = s.points.length + ' / ' + N_CLICKS + ' clicked';
+    document.querySelector('.imgStatus[data-idx="' + idx + '"]').innerText = s.points.length + ' / ' + N_CLICKS;
+    const hint = document.querySelector('.next-hint[data-idx="' + idx + '"]');
+    const n = s.points.length;
+    hint.className = 'next-hint' + (n >= N_CLICKS ? ' done' : '');
+    hint.innerText = n >= N_CLICKS ? 'done' : 'next: ' + (n < N_CORNERS ? CORNER_NAMES[n] : 'B' + (n - N_CORNERS + 1));
     updateGlobalStatus();
   }
 
@@ -166,6 +286,14 @@
     document.getElementById('sfmRunBtn').disabled = done < 4;
   }
 
+  document.querySelectorAll('.undoBtn').forEach(btn => btn.addEventListener('click', () => {
+    state[btn.dataset.idx].points.pop(); redraw(btn.dataset.idx);
+  }));
+  document.querySelectorAll('.clearBtn').forEach(btn => btn.addEventListener('click', () => {
+    state[btn.dataset.idx].points = []; redraw(btn.dataset.idx);
+  }));
+  window.addEventListener('resize', () => Object.keys(state).forEach(redraw));
+
   document.getElementById('sfmForm').addEventListener('submit', () => {
     for (let i = 0; i < 4; i++) {
       document.getElementById('pointsField' + i).value = JSON.stringify(state[i].points);
@@ -174,55 +302,120 @@
 </script>
 {% endif %}
 
-{% if stage == 'result' %}
+
+{% if result %}
+{% set r = result %}
 <div class="card">
-  <h2>Recovered camera parameters</h2>
-  <p class="muted">K source: {{ result.k_source }}. Image size: {{ result.image_size[0] }} x {{ result.image_size[1] }}.</p>
-  <p><strong>K</strong> (shared intrinsics, all 4 views): <code>{{ result.K }}</code></p>
-  <table class="result-table">
-    <thead><tr><th>camera</th><th>rotation R</th><th>translation t (mm)</th><th>position C in world (mm)</th><th>solvePnP ok</th></tr></thead>
-    <tbody>
-      {% for c in result.cameras %}
-      <tr>
-        <td>{{ c.id }}</td>
-        <td><code>{{ c.R }}</code></td>
-        <td><code>{{ c.t }}</code></td>
-        <td><code>{{ c.C }}</code></td>
-        <td>{{ "yes" if c.ok else "no" }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  {{ smp.banner(sample_info) }}
+  <h2>Result &middot; save the outputs</h2>
+  <p>Object {{ r.width_mm }} &times; {{ r.height_mm }} mm, 4 photos at {{ r.image_size[0] }}&times;{{ r.image_size[1] }} px{% if r.mixed_orientation %} (mixed portrait/landscape){% endif %}.
+    {% if r.notes %}<br><span class="muted">Capture notes: {{ r.notes }}</span>{% endif %}</p>
+  <div style="display:flex; flex-wrap:wrap; gap:8px;">
+    <a href="{{ r.zip_url }}"><button type="button" style="margin-top:0;">&#11015; Download all (ZIP: photos, plots, report, CSV)</button></a>
+    <a href="{{ r.report_url }}" download><button type="button" style="margin-top:0; background:#64748b;">math report (.md)</button></a>
+    <a href="{{ r.cameras_csv_url }}" download><button type="button" style="margin-top:0; background:#64748b;">cameras (.csv)</button></a>
+    {% if not sample_info %}<a href="{{ url_for('hw5.sfm_view') }}"><button type="button" style="margin-top:0; background:#64748b;">new reconstruction</button></a>{% endif %}
+  </div>
+  {{ smp.save_button(sample_offer, "Save this reconstruction as the offline sample") }}
 </div>
 
 <div class="card">
-  <h2>Reconstruction quality</h2>
+  <h2>Camera parameters</h2>
+  <p class="eq">$$K{% if r.mixed_orientation %}_1{% endif %} = {{ r.tex_K }}$$</p>
+  {% if r.mixed_orientation %}
+  <p class="muted">Same camera and focal length for all 4 photos, but the phone stored some in portrait and some in
+    landscape, so the x/y axes of those photos are swapped. Each view therefore has its own \(K_i\): the same \(f\),
+    with the principal point at that photo's centre. See the camera table and each view's workout.</p>
+  {% endif %}
   <div class="stat-grid">
-    <div class="stat-box"><div class="label">Planarity RMS residual</div><div class="value">{{ result.planarity_rms }} mm</div></div>
-    <div class="stat-box"><div class="label">Max corner recovery error</div><div class="value">{{ result.corner_recovery_error | max }} mm</div></div>
+    <div class="stat-box"><div class="label">f<sub>x</sub>, f<sub>y</sub> (px)</div><div class="value">{{ r.fx }}, {{ r.fy }}</div></div>
+    <div class="stat-box"><div class="label">principal point (px)</div><div class="value">{{ r.cx }}, {{ r.cy }}</div></div>
+    <div class="stat-box"><div class="label">field of view (long &times; short side)</div><div class="value">{{ r.hfov }}&deg; &times; {{ r.vfov }}&deg;</div></div>
   </div>
-  <p class="muted">Corner recovery error per corner (mm), corners re-triangulated as if their world position were
-    unknown: {{ result.corner_recovery_error }}. Small values here and a small planarity RMS are the evidence
-    that the pose recovery + triangulation pipeline is self-consistent on this object.</p>
+  <p class="muted" style="margin-top:10px;">Source: {{ r.k_source }}<br>Distortion: {{ r.dist_text }}</p>
+
+  <h3>Camera positions (world frame on the object, mm)</h3>
+  <table class="result-table">
+    <thead><tr><th>camera</th><th>photo</th><th>position C</th><th>distance to centre</th><th>tilt vs. plane normal</th><th>rotation (Rodrigues, deg)</th><th>reproj. RMS / max</th></tr></thead>
+    <tbody>
+      {% for c in r.cameras %}
+      <tr><td>{{ c.id }}</td><td style="text-align:left">{{ c.image }}{% if c.size %}<br><span class="muted">{{ c.size }} {{ c.orientation }}</span>{% endif %}</td><td>({{ c.C|join(', ') }})</td><td>{{ c.distance }}</td>
+        <td>{{ c.tilt }}&deg;</td><td>({{ c.rvec|join(', ') }})</td><td>{{ c.reproj_rms }} / {{ c.reproj_max }} px</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="muted">Z is negative because the cameras are on the viewing side of the object, and the world Z axis
+    points into the object (right-handed, X right, Y down). Tilt 0&deg; = looking straight at the object.</p>
 </div>
 
 <div class="card">
   <h2>Reconstructed boundary</h2>
   <div class="comparison-grid">
-    <figure><img src="{{ result.scene_url }}"><figcaption>3D: cameras + reconstructed boundary</figcaption></figure>
-    <figure><img src="{{ result.topdown_url }}"><figcaption>top-down (looking along the fitted plane normal)</figcaption></figure>
+    <figure><img src="{{ r.topdown_url }}"><figcaption>estimated boundary in the object plane &middot; <a href="{{ r.topdown_url }}" download>save</a></figcaption></figure>
+    <figure><img src="{{ r.scene_url }}"><figcaption>3D: 4 recovered cameras + reconstruction &middot; <a href="{{ r.scene_url }}" download>save</a></figcaption></figure>
   </div>
-  <p class="muted">Triangulated boundary points (world mm, Z should be near 0 since the object is planar):</p>
-  <pre style="background:#0f172a; color:#e2e8f0; padding:14px; border-radius:8px; overflow-x:auto;">{{ result.boundary_3d }}</pre>
+  <div class="stat-grid">
+    <div class="stat-box"><div class="label">Edges top/right/bottom/left (mm)</div><div class="value" style="font-size:16px">{{ r.edges|join(' / ') }}</div></div>
+    <div class="stat-box"><div class="label">Estimated area</div><div class="value">{{ r.area|int }} mm&sup2;</div></div>
+    <div class="stat-box"><div class="label">Perimeter</div><div class="value">{{ r.perimeter }} mm</div></div>
+    <div class="stat-box"><div class="label">Planarity RMS</div><div class="value">{{ r.planarity_rms }} mm</div></div>
+  </div>
+  <p class="muted" style="margin-top:10px;">Nominal rectangle: {{ r.width_mm }} &times; {{ r.height_mm }} = {{ (r.width_mm * r.height_mm)|round|int }} mm&sup2;.
+    Corner recovery error (corners re-triangulated as if unknown): {{ r.corner_recovery_error|join(', ') }} mm.
+    The estimated boundary is the polygon through all reconstructed points (corners + B-points), ordered around their
+    centroid in the fitted plane.</p>
+  <table class="result-table">
+    <thead><tr><th>point</th><th>X (mm)</th><th>Y (mm)</th><th>Z (mm, &asymp;0 for a flat object)</th></tr></thead>
+    <tbody>
+      {% for X in r.corners_3d %}<tr><td>corner C{{ loop.index }}</td><td>{{ X[0] }}</td><td>{{ X[1] }}</td><td>{{ X[2] }}</td></tr>{% endfor %}
+      {% for X in r.boundary_3d %}<tr><td>B{{ loop.index }}</td><td>{{ X[0] }}</td><td>{{ X[1] }}</td><td>{{ X[2] }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
 </div>
 
 <div class="card">
-  <h2>Source photos</h2>
+  <h2>Photos used, with re-projection</h2>
+  <p class="muted">Red = clicked corners C1-C4, orange = clicked boundary points B1&hellip;, green crosses = reconstructed
+    3D points projected back through that view's recovered camera, green outline = estimated boundary.
+    Green landing on the clicks is the evidence that the cameras and points are consistent.</p>
   <div class="comparison-grid">
-    {% for url in result.image_urls %}
-    <figure><img src="{{ url }}"><figcaption>viewpoint {{ loop.index }}</figcaption></figure>
+    {% for u in r.annotated_urls %}
+    <figure><a href="{{ u }}" target="_blank"><img src="{{ u }}"></a><figcaption>viewpoint {{ loop.index }} &middot; {{ r.image_names[loop.index0] }} &middot; <a href="{{ r.image_urls[loop.index0] }}" download>original</a></figcaption></figure>
     {% endfor %}
   </div>
+</div>
+
+<div class="theory-box">
+  <h3>Mathematical workout: every view</h3>
+  {% for c in r.cameras %}
+  <details {% if loop.first %}open{% endif %} style="margin-bottom:14px;">
+    <summary style="cursor:pointer; color:#fde68a;"><strong>View {{ c.id }}</strong> ({{ c.image }}): clicked corners
+      {% for p in c.corners %}({{ p[0] }}, {{ p[1] }}){% if not loop.last %}, {% endif %}{% endfor %}</summary>
+    {% if r.mixed_orientation %}<p>This view's intrinsics ({{ c.size }}, {{ c.orientation }}): \(K_{{ c.id }} = {{ c.tex_Ki }}\)</p>{% endif %}
+    <p>DLT system (8&times;9) from the 4 corner correspondences, and its null vector reshaped into \(H\):</p>
+    <div style="overflow-x:auto;"><p class="eq">$$A = {{ c.tex_A }}$$</p></div>
+    <p class="eq">$$H = {{ c.tex_H }}$$</p>
+    <p>Pose from the homography: \(B = K^{-1}H\), \(\lambda = 1/\|b_1\| = {{ c.lambda }}\)</p>
+    <p class="eq">$$B = {{ c.tex_B }},\qquad [\,r_1\ r_2\ r_1{\times}r_2\,] = {{ c.tex_Rraw }}$$</p>
+    <p class="eq">$$R_H = {{ c.tex_Rh }},\qquad t_H = \lambda b_3 = {{ c.tex_th }}$$</p>
+    <p>Refined by <code>solvePnP</code> (differs from the homography estimate by {{ c.R_diff_deg }}&deg; in rotation and
+      {{ c.t_diff }} mm in translation):</p>
+    <p class="eq">$$R = {{ c.tex_R }},\quad t = {{ c.tex_t }},\quad C = -R^Tt = {{ c.tex_C }}$$</p>
+    <p class="eq">$$P = K[R\,|\,t] = {{ c.tex_P }}$$</p>
+  </details>
+  {% endfor %}
+
+  {% if r.worked %}
+  <h3>Mathematical workout: triangulating B1</h3>
+  <p>Observed at
+    {% for o in r.worked.obs %}view {{ loop.index }} ({{ o[0] }}, {{ o[1] }}){% if not loop.last %}, {% endif %}{% endfor %}.
+    Each view adds the rows \(x\,P^{(3)} - P^{(1)}\) and \(y\,P^{(3)} - P^{(2)}\):</p>
+  <div style="overflow-x:auto;"><p class="eq">$$A = {{ r.worked.tex_A }}$$</p></div>
+  <p>Singular values of \(A\): {{ r.worked.S|join(', ') }}. The smallest is near zero, so the 8 equations agree on one point.
+    Its right singular vector is the homogeneous solution:</p>
+  <p class="eq">$$X_h = {{ r.worked.tex_Xh }}\ \Rightarrow\ X = X_h[1{:}3]/X_h[4] = ({{ r.worked.X|join(',\ ') }})\ \text{mm}$$</p>
+  {% endif %}
+  <p class="muted" style="color:#94a3b8">The same numbers, plus every matrix at full precision, are in the downloadable report.</p>
 </div>
 {% endif %}
 {% endblock %}

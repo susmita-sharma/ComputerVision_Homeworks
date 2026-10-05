@@ -1,4 +1,5 @@
 {% extends "shell.html" %}
+{% import "_samples.html" as smp with context %}
 {% block content %}
 <div class="card">
   <h1>HW3 &middot; Blur: Spatial vs. Frequency</h1>
@@ -28,6 +29,7 @@
 {% if results %}
 {% for result in results %}
 <div class="card">
+  {% if loop.first %}{{ smp.banner(sample_info) }}{% endif %}
   <h2>Result &mdash; {{ result.kernel_type }} kernel, {{ result.ksize }}&times;{{ result.ksize }}, &sigma;={{ result.sigma }}</h2>
 
   <p class="muted">Everything for this kernel in one image: original, spatial-domain result, frequency-domain
@@ -51,10 +53,12 @@
       the 0-255 range, and consistent with floating-point/FFT rounding rather than a modeling error.
     {% endif %}
   </p>
+  {% if loop.last %}{{ smp.save_button(sample_offer, "Save both kernels' results as the offline sample") }}{% endif %}
 </div>
 {% endfor %}
 {% endif %}
 
+{% if not sample_info %}
 <div class="card">
   <h2>Offline example output</h2>
   <p class="muted">The same pipeline run ahead of time on a sample photo from the repo, so you can see the panel layout without uploading anything:</p>
@@ -63,6 +67,7 @@
   <p class="muted" style="margin-top:18px;"><strong>Box kernel</strong></p>
   <img src="{{ url_for('hw3.static', filename='demo/box_result.jpg') }}" style="max-width:100%; border-radius:8px; border:1px solid var(--border);">
 </div>
+{% endif %}
 
 <div class="theory-box">
   <h3>Theory: convolution in space &equiv; multiplication in frequency</h3>

@@ -1,93 +1,227 @@
 {% extends "shell.html" %}
+{% import "_samples.html" as smp with context %}
 {% block content %}
+<style>
+  .progress { height: 10px; background: #e5e7eb; border-radius: 999px; overflow: hidden; margin: 10px 0; }
+  .progress > div { height: 100%; background: var(--accent); width: 0; transition: width .3s; }
+  .live-frame { max-width: 100%; max-height: 640px; border-radius: 8px; border: 1px solid var(--border); display: block; margin: 10px auto; background: #000; }
+  .dl-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .dl-row a { font-size: 13px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; text-decoration: none; color: var(--accent); background: #f8fafc; }
+  .dl-row a.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .speed-btns button { margin-top: 6px; padding: 5px 10px; font-size: 13px; }
+  .legend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13.5px; }
+  .legend-grid div { background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+  ul.infer li { margin-bottom: 6px; }
+</style>
+
 <div class="card">
-  <h1>HW5 Step 1 &middot; Optical Flow <span class="hw-pill">30+ sec clip</span></h1>
-  <p>Upload a video with at least ~30 seconds of real motion in it (something moving through the scene, or the
-    camera itself panning/walking). Dense optical flow (Farneback) is computed between every consecutive frame
-    pair and color-coded into a second video.</p>
-  <form method="POST" enctype="multipart/form-data">
-    <label>Video file (mp4/mov/avi)</label>
-    <input type="file" name="video" accept="video/*" required>
-    <label>Seconds to process (from the start)</label>
-    <input type="number" name="max_seconds" value="30" min="5" max="60" step="1">
-    <button type="submit">Compute optical flow</button>
-  </form>
+  <h1>HW5 Step 1 &middot; Optical Flow &amp; Tracking on Video <span class="hw-pill">2 videos &middot; 30 s each</span></h1>
+  <p>Upload <strong>two</strong> videos you captured, each with at least 30 seconds of motion (people walking, cars,
+    a pet, a ball, or the camera itself panning). For each clip the app:</p>
+  <ol>
+    <li>computes dense optical flow (Farneback) between every pair of consecutive frames,</li>
+    <li>follows ~150-200 corner features over time (KLT tracks),</li>
+    <li>estimates the camera's own motion and removes it, so what remains is motion of <em>objects</em>,</li>
+    <li>boxes each moving object, gives it an ID and follows it frame to frame,</li>
+    <li>renders all of this into a video that plays back in real time, and writes the numbers behind the
+      conclusions (CSV, plots, summary) into a downloadable ZIP.</li>
+  </ol>
+  <p class="muted">Processing runs in the background at roughly 3-5x slower than real time (about 1.5-2.5 minutes for
+    30 s). You watch the annotated frames appear live while it runs. Phone videos at 60 fps are analysed at 30 fps.</p>
+</div>
+
+<div class="card">
+  <h2>How to read the output video (2&times;2 panels)</h2>
+  <div class="legend-grid">
+    <div><strong>1 &middot; Objects + KLT tracks</strong> (top-left). The original frame. Boxes = moving objects with
+      ID, speed (px/frame) and an arrow for direction; thin lines = each object's centroid path. Dots and trails =
+      tracked corner features: <span style="color:#e67e00">orange</span> on a moving object,
+      <span style="color:#00a3c4">cyan</span> on the background.</div>
+    <div><strong>2 &middot; Dense flow (HSV)</strong> (top-right). Each pixel's motion vector as a color: hue =
+      direction (see the color wheel), brightness = speed. Black = no motion.</div>
+    <div><strong>3 &middot; Flow vectors</strong> (bottom-left). The same field as arrows on a 12 px grid, drawn 3&times;
+      longer than the true motion.</div>
+    <div><strong>4 &middot; Camera-compensated motion</strong> (bottom-right). |flow &minus; flow caused by the camera's
+      own motion|. Green outlines are the regions above the adaptive threshold: these are what the app counts as
+      objects.</div>
+  </div>
+  <h3 style="margin-top:18px;">What counts as an "object"?</h3>
+  <p class="muted" style="font-size:14px;">No object detector or neural network is used. An object here is a connected
+    region whose motion <em>differs from the camera's motion</em> by more than an adaptive threshold
+    (median + 4 robust standard deviations of the residual, never below 1 px/frame), after removing small specks and
+    keeping regions of at least 0.3% of the frame. The camera's motion is a similarity transform (shift, rotation,
+    zoom) fitted with RANSAC to the KLT tracks, most of which sit on the static background. So a walking person, a
+    car, or a waved hand becomes an object. A camera pan does not, because the whole background moves
+    consistently and gets subtracted. One object can split in two when parts of it stop moving (e.g. a person's
+    torso vs. legs), and two objects that touch can merge into one.</p>
 </div>
 
 <div class="theory-box">
-  <h3>What optical flow actually measures</h3>
+  <h3>What optical flow measures, and what can be inferred from it</h3>
   <p>Optical flow \(\mathbf{v}(x,y) = (u,v)\) is the apparent 2D velocity of image brightness at each pixel between
-    two frames, under the brightness-constancy assumption \(I(x,y,t) = I(x+u,y+v,t+1)\). It is <em>not</em> true 3D
-    motion - it's a projection of it, and it is undefined (zero) anywhere the image has no local texture (the flat
-    interior of a wall gives no information about how it moved, even if it did).</p>
-  <p>See the <a href="{{ url_for('hw5.tracking_view') }}">Tracking page</a> for the full derivation from the
-    brightness-constancy equation.</p>
-</div>
-
-{% if result %}
-<div class="card">
-  <h2>Flow visualization video</h2>
-  <p class="muted">Left: original frame. Right: color-coded flow field for the step ending at that frame -
-    hue = direction (see the small color wheel burned into the corner), brightness = speed. Processed
-    {{ result.n_frames_used }} frames at ~{{ "%.1f"|format(result.fps) }} fps.</p>
-  <video controls style="max-width:100%; border-radius:8px; border:1px solid var(--border);">
-    <source src="{{ result.flow_video_url }}" type="video/mp4">
-  </video>
-</div>
-
-<div class="card">
-  <h2>Evidence: what can be inferred from the flow field</h2>
-  <div class="stat-grid">
-    <div class="stat-box"><div class="label">Peak mean speed</div><div class="value">{{ "%.2f"|format(result.overall.peak_mean_mag) }} px/frame</div></div>
-    <div class="stat-box"><div class="label">Avg mean speed</div><div class="value">{{ "%.2f"|format(result.overall.avg_mean_mag) }} px/frame</div></div>
-    <div class="stat-box"><div class="label">Peak moving area</div><div class="value">{{ "%.1f"|format(result.overall.peak_moving_frac) }}%</div></div>
-    <div class="stat-box"><div class="label">Avg moving area</div><div class="value">{{ "%.1f"|format(result.overall.avg_moving_frac) }}%</div></div>
-  </div>
-  <img src="{{ result.stats_plot_url }}" style="max-width:100%; margin-top:14px; border-radius:8px;">
+    two frames, under brightness constancy \(I(x,y,t) = I(x+u,\,y+v,\,t+1)\). It is the projection of 3D motion onto
+    the image, so from it we can infer:</p>
   <ul>
-    <li><strong>When</strong> motion happened: the left plot's "% pixels moving" curve marks the timestamps where
-      something in the scene was actually displacing between frames &gt;1px, vs. moments the scene was static.</li>
-    <li><strong>How fast</strong>: mean flow magnitude (px/frame) tracks relative speed over time - peaks
-      correspond to the fastest-moving moments in the clip (peak here: {{ "%.2f"|format(result.overall.peak_mean_mag) }} px/frame).</li>
-    <li><strong>Which direction</strong>: the direction histogram (right plot) shows whether motion was
-      dominantly one way (a tight peak - e.g. consistent camera pan or an object crossing frame) or scattered
-      (multiple/complex motions, or mostly noise).</li>
-    <li><strong>How much of the frame moved</strong>: the moving-area fraction distinguishes a small
-      object moving through an otherwise static scene (low %) from broad motion like a camera pan (high %,
-      often &gt;50%).</li>
+    <li><strong>Where and when things move</strong>: segmenting non-zero flow gives the moving regions and the
+      times they move.</li>
+    <li><strong>How fast and in which direction</strong>: \(|\mathbf v|\) in px/frame (&times; fps = px/s) and
+      \(\operatorname{atan2}(v,u)\).</li>
+    <li><strong>Camera ego-motion vs. object motion</strong>: a pan gives near-uniform flow over the whole frame,
+      a zoom or forward walk gives a radially expanding field, while an object gives localized flow that
+      disagrees with its surroundings.</li>
+    <li><strong>Approach / recession</strong>: positive divergence \(\partial u/\partial x + \partial v/\partial y\)
+      means expansion (the object is getting closer, which gives a time-to-contact cue), and negative means
+      contraction.</li>
+    <li><strong>Relative depth</strong> (when the camera translates): nearer surfaces move faster in the image
+      (motion parallax).</li>
+    <li><strong>Its own limits</strong>: on textureless surfaces the gradient is \(\approx 0\), so brightness constancy
+      gives no constraint (aperture problem) and the flow there is just interpolated.</li>
   </ul>
+  <p>Each video's results below list these inferences with the measured numbers behind them. The derivation of the
+    flow constraint is on the <a href="{{ url_for('hw5.tracking_view') }}" style="color:#93c5fd">Tracking page</a>.</p>
 </div>
 
-<div class="card">
-  <h2>Sample frames</h2>
-  <div class="comparison-grid">
-    {% for s in result.samples %}
-    <figure>
-      <img src="{{ s.frame_url }}">
-      <figcaption>t={{ "%.2f"|format(s.t_sec) }}s &middot; original</figcaption>
-    </figure>
-    <figure>
-      <img src="{{ s.flow_url }}">
-      <figcaption>flow &middot; mean |v|={{ "%.2f"|format(s.stats.mean_mag) }}px, {{ "%.1f"|format(s.stats.moving_frac*100) }}% moving</figcaption>
-    </figure>
-    {% endfor %}
-  </div>
-</div>
+{% for s in slots %}
+{% set run = s.run %}
+<div class="card" id="video{{ s.slot }}">
+  <h2>Video {{ s.slot }}</h2>
+  {{ smp.banner(s.sample_info) }}
 
-{% if result.prev_next_urls %}
-<div class="card">
-  <h2>Next: validate tracking on a real consecutive frame pair</h2>
-  <p>These two frames were pulled straight out of the middle of the clip you just processed.</p>
-  <div class="comparison-grid">
-    <figure><img src="{{ result.prev_next_urls[0] }}"><figcaption>frame t</figcaption></figure>
-    <figure><img src="{{ result.prev_next_urls[1] }}"><figcaption>frame t+1</figcaption></figure>
-  </div>
-  <p>
-    <a href="{{ url_for('hw5.tracking_view', prev=result.prev_next_urls[0], next=result.prev_next_urls[1]) }}">
-      <button type="button">Use this pair on the Tracking page &rarr;</button>
-    </a>
-  </p>
+  {% if run and run.status.state == 'running' %}
+    <p><strong>Processing&hellip;</strong> <span id="stat{{ s.slot }}" class="muted">starting</span></p>
+    <div class="progress"><div id="bar{{ s.slot }}"></div></div>
+    <img id="live{{ s.slot }}" class="live-frame" alt="live preview appears here">
+    <p class="muted">Live preview of the annotated frames as they are computed. The finished video plays back at
+      the clip's real frame rate.</p>
+    <script>
+      (function () {
+        const slot = "{{ s.slot }}";
+        const statusUrl = "{{ url_for('hw5.flow_status', run_id=run.run_id) }}";
+        const img = document.getElementById('live' + slot);
+        let last = -1;
+        async function poll() {
+          try {
+            const r = await fetch(statusUrl, {cache: 'no-store'});
+            const st = await r.json();
+            if (st.state === 'done' || st.state === 'error') { location.reload(); return; }
+            document.getElementById('bar' + slot).style.width = Math.round((st.progress || 0) * 100) + '%';
+            let txt = (st.message || '') + (st.n_total ? ` frame ${st.frame}/${st.n_total}` : '');
+            if (st.t_sec !== undefined) txt += ` · video time ${st.t_sec}s`;
+            if (st.elapsed && st.frame) txt += ` · ${(st.frame / st.elapsed).toFixed(1)} frames/s`;
+            document.getElementById('stat' + slot).innerText = txt;
+            if (st.live_url && st.frame !== last) { img.src = st.live_url + '?f=' + Date.now(); last = st.frame; }
+          } catch (e) {}
+          setTimeout(poll, 300);
+        }
+        poll();
+        // swap the live image faster than the status (it's rewritten every 2 frames)
+        setInterval(() => { if (img.src) img.src = img.src.split('?')[0] + '?f=' + Date.now(); }, 150);
+      })();
+    </script>
+
+  {% elif run and run.status.state == 'error' %}
+    <div class="flash">Processing failed: {{ run.status.message }}</div>
+
+  {% elif run and run.summary %}
+    {% set sm = run.summary %}
+    {% set o = sm.overall %}
+    <p class="muted">{{ sm.video_name }} &middot; {{ sm.src_size[0] }}&times;{{ sm.src_size[1] }} @
+      {{ "%.1f"|format(sm.src_fps) }} fps, {{ sm.clip_duration_sec }} s long &middot; analysed
+      {{ sm.processed_sec }} s from t={{ sm.start_sec }} s at {{ "%.1f"|format(sm.out_fps) }} fps
+      ({{ sm.n_pairs }} frame pairs, {{ sm.analysis_size[0] }}&times;{{ sm.analysis_size[1] }} px) in
+      {{ sm.processing_sec }} s.</p>
+    {% if sm.processed_sec < 29 %}
+    <div class="flash">Only {{ sm.processed_sec }} s were analysed. The assignment asks for at least 30 s of
+      motion per video.</div>
+    {% endif %}
+
+    <video id="vid{{ s.slot }}" controls muted loop playsinline style="width:100%; max-height:720px; background:#000; border-radius:8px;">
+      <source src="{{ run.files['flow_tracking.webm'] }}" type="video/webm">
+      Your browser can't play WebM. Download the file below instead.
+    </video>
+    <div class="speed-btns">
+      <span class="muted">Playback speed:</span>
+      {% for r in [0.25, 0.5, 1, 2] %}<button type="button" onclick="document.getElementById('vid{{ s.slot }}').playbackRate={{ r }}">{{ r }}&times;</button> {% endfor %}
+      <span class="muted">(1&times; = real time)</span>
+    </div>
+
+    <div class="dl-row">
+      <a class="primary" href="{{ run.zip_url }}">&#11015; Download all outputs (ZIP)</a>
+      <a href="{{ run.files['flow_tracking.webm'] }}" download>video (.webm)</a>
+      <a href="{{ run.files['stats.png'] }}" download>plots (.png)</a>
+      <a href="{{ run.files['stats.csv'] }}" download>per-frame stats (.csv)</a>
+      <a href="{{ run.files['objects.csv'] }}" download>object tracks (.csv)</a>
+      <a href="{{ run.files['summary.md'] }}" download>summary (.md)</a>
+    </div>
+
+    <h3 style="margin-top:22px;">Evidence: what this video's optical flow tells us</h3>
+    <div class="stat-grid">
+      <div class="stat-box"><div class="label">Max objects at once</div><div class="value">{{ o.max_objects }}</div></div>
+      <div class="stat-box"><div class="label">Frames with a moving object</div><div class="value">{{ "%.0f"|format(o.frames_with_objects_pct) }}%</div></div>
+      <div class="stat-box"><div class="label">Peak moving area</div><div class="value">{{ "%.1f"|format(o.peak_moving_frac) }}%</div></div>
+      <div class="stat-box"><div class="label">Median camera shift</div><div class="value">{{ "%.2f"|format(o.median_cam_shift) }} px/f</div></div>
+    </div>
+    <ul class="infer" style="margin-top:14px;">
+      {% for line in sm.inferences %}<li>{{ line }}</li>{% endfor %}
+    </ul>
+    <img src="{{ run.files['stats.png'] }}" style="width:100%; border-radius:8px; border:1px solid var(--border);">
+
+    {% if sm.objects %}
+    <h3>Objects the tracker followed (longest first)</h3>
+    <table class="result-table">
+      <thead><tr><th>ID</th><th>visible (s)</th><th>frames</th><th>mean speed</th><th>direction</th><th>path</th><th>max area</th></tr></thead>
+      <tbody>
+      {% for ob in sm.objects %}
+        <tr><td>obj {{ ob.id }}</td><td>{{ ob.first_t }} &ndash; {{ ob.last_t }}</td><td>{{ ob.n_frames }}</td>
+          <td>{{ ob.mean_speed_px_per_frame }} px/f ({{ ob.mean_speed_px_per_s }} px/s)</td>
+          <td>{{ ob.direction }} ({{ ob.direction_deg }}&deg;)</td><td>{{ ob.path_px }} px</td><td>{{ ob.max_area_px }} px&sup2;</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p class="muted">Speeds and areas are in analysis-resolution pixels ({{ sm.analysis_size[0] }}&times;{{ sm.analysis_size[1] }}).
+      Very short tracks are usually one object splitting/merging or brief noise.</p>
+    {% endif %}
+
+    <h3>Key frames</h3>
+    <div class="comparison-grid">
+      {% for kf in sm.keyframes %}
+      <figure><a href="{{ run.files[kf.file] }}" target="_blank"><img src="{{ run.files[kf.file] }}"></a>
+        <figcaption>{{ kf.name }} &middot; t={{ kf.t_sec }}s &middot; <a href="{{ run.files[kf.file] }}" download>save</a></figcaption></figure>
+      {% endfor %}
+    </div>
+
+    {% if run.pair %}
+    <h3>Next: validate tracking on two consecutive frames of this video</h3>
+    <p class="muted">Original-resolution frames {{ sm.pair_frames[0] }} and {{ sm.pair_frames[1] }}
+      (t = {{ sm.pair_t_sec }} s), picked at the most active moment of the clip.</p>
+    <div class="comparison-grid">
+      <figure><img src="{{ run.pair[0] }}"><figcaption>frame t</figcaption></figure>
+      <figure><img src="{{ run.pair[1] }}"><figcaption>frame t+1</figcaption></figure>
+    </div>
+    <p><a href="{{ url_for('hw5.tracking_view', prev=run.pair[0], next=run.pair[1], label='Video ' ~ s.slot) }}">
+      <button type="button">Track points on this pair (Video {{ s.slot }}) &rarr;</button></a></p>
+    {% endif %}
+    {{ smp.save_button(s.sample_offer, "Save Video " ~ s.slot ~ "'s results as the offline sample") }}
+    {% if not s.sample_info %}
+    <form method="POST" action="{{ url_for('hw5.flow_clear', slot=s.slot) }}" style="display:inline;">
+      <button type="submit" style="background:#64748b; font-size:13px; padding:6px 12px;">Clear slot (show the saved sample)</button>
+    </form>
+    {% endif %}
+  {% endif %}
+
+  {% if not run or run.status.state != 'running' %}
+  {% if run and run.summary %}<details style="margin-top:18px;"><summary>Process a different video for slot {{ s.slot }}</summary>{% endif %}
+  <form method="POST" action="{{ url_for('hw5.flow_start', slot=s.slot) }}" enctype="multipart/form-data">
+    <label>Video {{ s.slot }} file (mp4 / mov / avi / webm)</label>
+    <input type="file" name="video" accept="video/*" required>
+    <div style="display:flex; gap:16px; flex-wrap:wrap;">
+      <div><label>Start at (s)</label><input type="number" name="start_sec" value="0" min="0" step="0.5" style="max-width:140px;"></div>
+      <div><label>Seconds to analyse</label><input type="number" name="max_seconds" value="30" min="2" max="60" step="1" style="max-width:140px;"></div>
+    </div>
+    <button type="submit">Upload &amp; analyse video {{ s.slot }}</button>
+  </form>
+  {% if run and run.summary %}</details>{% endif %}
+  {% endif %}
 </div>
-{% endif %}
-{% endif %}
+{% endfor %}
 {% endblock %}

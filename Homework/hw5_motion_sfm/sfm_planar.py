@@ -103,6 +103,77 @@ def scale_intrinsics(K, from_size, to_size):
     return K2
 
 
+def exif_intrinsics(path, image_w, image_h):
+    """Camera matrix from the photo's EXIF 35mm-equivalent focal length.
+    A 35mm frame has a 43.27mm diagonal, so f_px = f35 / 43.27 * image
+    diagonal in px. Returns (K, f35) or (None, None) if the tag is absent."""
+    try:
+        from PIL import Image
+        with Image.open(path) as im:
+            f35 = im.getexif().get_ifd(0x8769).get(0xA405)
+    except Exception:
+        return None, None
+    if not f35:
+        return None, None
+    f = float(f35) / 43.27 * np.hypot(image_w, image_h)
+    K = np.array([[f, 0, image_w / 2.0], [0, f, image_h / 2.0], [0, 0, 1.0]])
+    return K, float(f35)
+
+
+def calibration_intrinsics(K_cal, cal_size, image_size):
+    """HW2 calibration K adapted to these photos. If the calibration was
+    done in the other orientation (landscape vs portrait), x/y axes are
+    swapped first, then the matrix is rescaled to the new resolution."""
+    K = np.asarray(K_cal, dtype=np.float64).copy()
+    cw, ch = cal_size
+    swapped = (cw > ch) != (image_size[0] > image_size[1])
+    if swapped:
+        K = np.array([[K[1, 1], 0, K[1, 2]], [0, K[0, 0], K[0, 2]], [0, 0, 1.0]])
+        cw, ch = ch, cw
+    return scale_intrinsics(K, (cw, ch), image_size), swapped
+
+
+def homography_dlt(world_xy, image_pts):
+    """Plane-to-image homography from >= 4 correspondences, from scratch.
+
+    For world (X, Y) on the Z=0 plane and pixel (x, y):
+        s [x y 1]^T = H [X Y 1]^T
+    Cross-multiplying out the scale gives 2 linear equations per point in
+    the 9 entries h of H:
+        [-X -Y -1  0  0  0  xX  xY  x] h = 0
+        [ 0  0  0 -X -Y -1  yX  yY  y] h = 0
+    Stack them into A (2n x 9); h = right singular vector of A with the
+    smallest singular value. Returns (A, H normalized so H[2,2] = 1)."""
+    rows = []
+    for (X, Y), (x, y) in zip(world_xy, image_pts):
+        rows.append([-X, -Y, -1, 0, 0, 0, x * X, x * Y, x])
+        rows.append([0, 0, 0, -X, -Y, -1, y * X, y * Y, y])
+    A = np.array(rows, dtype=np.float64)
+    _, _, Vt = np.linalg.svd(A)
+    H = Vt[-1].reshape(3, 3)
+    return A, H / H[2, 2]
+
+
+def pose_from_homography(H, K):
+    """Since Z = 0, K[r1 r2 r3 t][X Y 0 1]^T = K[r1 r2 t][X Y 1]^T, so
+        H = lambda * K [r1 r2 t]  ->  B = K^-1 H = [b1 b2 b3]
+        lambda = 1/||b1||,  r1 = b1/||b1||,  r2 = b2/||b1||,  r3 = r1 x r2,
+        t = b3/||b1||   (sign chosen so the plane is in front: t_z > 0).
+    Noise makes [r1 r2 r3] slightly non-orthogonal, so it is snapped to the
+    nearest rotation with an SVD (R = U V^T)."""
+    B = np.linalg.inv(K) @ H
+    lam = 1.0 / np.linalg.norm(B[:, 0])
+    if (lam * B[2, 2]) < 0:
+        lam = -lam
+    r1, r2, t = lam * B[:, 0], lam * B[:, 1], lam * B[:, 2]
+    R_raw = np.column_stack([r1, r2, np.cross(r1, r2)])
+    U, _, Vt = np.linalg.svd(R_raw)
+    R = U @ Vt
+    if np.linalg.det(R) < 0:
+        R = U @ np.diag([1, 1, -1]) @ Vt
+    return {"B": B, "lambda": lam, "R_raw": R_raw, "R": R, "t": t}
+
+
 def solve_camera_pose(image_corners, world_corners, K, dist_coeffs=None):
     dist = dist_coeffs if dist_coeffs is not None else np.zeros(5)
     obj = np.asarray(world_corners, dtype=np.float64)
@@ -150,17 +221,77 @@ def fit_plane(points):
     return centroid, normal, rms
 
 
+def triangulation_system(P_list, pts2d_list):
+    """The stacked DLT matrix A and its SVD, for the worked example."""
+    rows = []
+    for P, (x, y) in zip(P_list, pts2d_list):
+        rows.append(x * P[2, :] - P[0, :])
+        rows.append(y * P[2, :] - P[1, :])
+    A = np.array(rows)
+    _, S, Vt = np.linalg.svd(A)
+    return A, S, Vt[-1]
+
+
+def project(P, X):
+    x = P @ np.append(np.asarray(X, dtype=np.float64), 1.0)
+    return x[:2] / x[2]
+
+
+def in_plane_coords(points, centroid, normal):
+    ref = np.array([1.0, 0, 0]) if abs(normal[0]) < 0.9 else np.array([0, 1.0, 0])
+    u = ref - normal * np.dot(ref, normal)
+    u = u / np.linalg.norm(u)
+    v = np.cross(normal, u)
+    pts = np.asarray(points, dtype=np.float64) - centroid
+    return np.stack([pts @ u, pts @ v], axis=-1)
+
+
+def estimate_boundary(corner_3d, boundary_3d, centroid, normal):
+    """Estimated outline = all reconstructed points (corners + boundary
+    points) ordered by angle around their centroid in the fitted plane,
+    plus its area (shoelace formula) and perimeter."""
+    pts3 = np.vstack([corner_3d, boundary_3d]) if len(boundary_3d) else np.asarray(corner_3d)
+    uv = in_plane_coords(pts3, centroid, normal)
+    c = uv.mean(axis=0)
+    order = np.argsort(np.arctan2(uv[:, 1] - c[1], uv[:, 0] - c[0]))
+    poly = uv[order]
+    x, y = poly[:, 0], poly[:, 1]
+    area = 0.5 * abs(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1)))
+    perim = float(np.sum(np.hypot(np.diff(np.append(x, x[0])), np.diff(np.append(y, y[0])))))
+    return {"order": order.tolist(), "polygon_3d": pts3[order], "polygon_uv": poly,
+            "area": float(area), "perimeter": perim}
+
+
 def reconstruct(views, world_corners, K, dist_coeffs=None):
     """views: list of 4 dicts, each {"corners": [4 (x,y)], "boundary": [N (x,y)]}
     in the SAME point order across all views (same physical points).
+    K / dist_coeffs: one shared camera matrix, or a list with one per view -
+    needed when the phone saved some photos in portrait and some in
+    landscape (same sensor, but the image axes are swapped).
     Returns per-camera poses, triangulated 3D boundary + corners, and the
     validation metrics described in the module docstring.
     """
+    world_corners = np.asarray(world_corners, dtype=np.float64)
+    K_list = list(K) if isinstance(K, (list, tuple)) else [K] * len(views)
+    dist_list = list(dist_coeffs) if isinstance(dist_coeffs, (list, tuple)) else [dist_coeffs] * len(views)
     poses, P_list = [], []
-    for v in views:
+    for v, K, dist_coeffs in zip(views, K_list, dist_list):
         R, t, ok = solve_camera_pose(v["corners"], world_corners, K, dist_coeffs)
         P = projection_matrix(K, R, t)
-        poses.append({"R": R, "t": t, "C": camera_center(R, t), "ok": ok})
+        A_h, H = homography_dlt(world_corners[:, :2], v["corners"])
+        hp = pose_from_homography(H, K)
+        C = camera_center(R, t)
+        optical_axis = R.T @ np.array([0, 0, 1.0])
+        poses.append({
+            "R": R, "t": t, "C": C, "ok": ok, "P": P,
+            "H": H, "A_h": A_h, "hpose": hp,
+            "R_diff_deg": float(np.degrees(np.arccos(np.clip((np.trace(hp["R"].T @ R) - 1) / 2, -1, 1)))),
+            "t_diff": float(np.linalg.norm(hp["t"] - t)),
+            "rvec_deg": (cv2.Rodrigues(R)[0].reshape(3) * 180 / np.pi),
+            "distance": float(np.linalg.norm(C - world_corners.mean(axis=0))),
+            "tilt_deg": float(np.degrees(np.arccos(abs(optical_axis[2])))),
+            "K": K,
+        })
         P_list.append(P)
 
     n_boundary = len(views[0]["boundary"])
@@ -183,10 +314,31 @@ def reconstruct(views, world_corners, K, dist_coeffs=None):
     all_points = boundary_3d + corner_3d
     centroid, normal, planarity_rms = fit_plane(all_points)
 
+    # reprojection: project the reconstructed 3D points back through each
+    # camera and compare with where they were actually clicked
+    for v, P, pose in zip(views, P_list, poses):
+        errs = [np.linalg.norm(project(P, X) - np.asarray(x)) for X, x in zip(world_corners, v["corners"])]
+        errs += [np.linalg.norm(project(P, X) - np.asarray(x)) for X, x in zip(boundary_3d, v["boundary"])]
+        pose["reproj_rms"] = float(np.sqrt(np.mean(np.square(errs))))
+        pose["reproj_max"] = float(np.max(errs))
+
+    worked = None
+    if n_boundary:
+        A_t, S_t, X_h = triangulation_system(P_list, [v["boundary"][0] for v in views])
+        worked = {"A": A_t, "S": S_t, "X_h": X_h, "X": X_h[:3] / X_h[3],
+                  "obs": [v["boundary"][0] for v in views]}
+
+    boundary = estimate_boundary(corner_3d, boundary_3d, centroid, normal)
+    edges = [float(np.linalg.norm(np.array(corner_3d[(j + 1) % 4]) - np.array(corner_3d[j]))) for j in range(4)]
+
     return {
+        "worked_triangulation": worked,
+        "boundary_estimate": boundary,
+        "edge_lengths": edges,
         "poses": poses,
         "P_list": P_list,
-        "K": K,
+        "K": K_list[0],
+        "K_list": K_list,
         "boundary_3d": boundary_3d,
         "corner_3d": corner_3d,
         "corner_recovery_error": corner_recovery_error,
@@ -225,8 +377,12 @@ def plot_scene(result, world_corners, out_path):
     fig.patch.set_facecolor("white")
     ax = fig.add_subplot(111, projection="3d")
 
-    poly = np.vstack([boundary, boundary[:1]])
-    ax.plot(poly[:, 0], poly[:, 1], poly[:, 2], "-o", color=PRIMARY, label="reconstructed boundary")
+    poly = np.asarray(result["boundary_estimate"]["polygon_3d"])
+    poly = np.vstack([poly, poly[:1]])
+    ax.plot(poly[:, 0], poly[:, 1], poly[:, 2], "-o", color=PRIMARY, label="estimated boundary")
+    if len(boundary):
+        ax.scatter(boundary[:, 0], boundary[:, 1], boundary[:, 2], color="#16a34a", s=30,
+                   label="triangulated boundary points")
 
     wc = np.vstack([world_corners, world_corners[:1]])
     ax.plot(wc[:, 0], wc[:, 1], wc[:, 2], "--", color=GRID_COLOR, linewidth=1.5, label="known rectangle (ground truth)")
@@ -259,30 +415,30 @@ def plot_topdown(result, world_corners, out_path):
     normal = result["plane_normal"]
     centroid = result["plane_centroid"]
 
-    ref = np.array([1.0, 0, 0]) if abs(normal[0]) < 0.9 else np.array([0, 1.0, 0])
-    u = ref - normal * np.dot(ref, normal)
-    u = u / np.linalg.norm(u)
-    v = np.cross(normal, u)
-
     def to_plane(points):
-        pts = np.asarray(points) - centroid
-        return np.stack([pts @ u, pts @ v], axis=-1)
+        return in_plane_coords(points, centroid, normal)
 
-    boundary_2d = to_plane(result["boundary_3d"])
     corners_2d = to_plane(result["corner_3d"])
     world_2d = to_plane(np.asarray(world_corners))
 
     fig, ax = plt.subplots(figsize=(6, 6))
     fig.patch.set_facecolor("white")
-    poly = np.vstack([boundary_2d, boundary_2d[:1]])
-    ax.plot(poly[:, 0], poly[:, 1], "-o", color=PRIMARY, label="reconstructed boundary")
+    poly = np.asarray(result["boundary_estimate"]["polygon_uv"])
+    poly = np.vstack([poly, poly[:1]])
+    ax.fill(poly[:, 0], poly[:, 1], color=PRIMARY, alpha=0.12)
+    ax.plot(poly[:, 0], poly[:, 1], "-", color=PRIMARY, label="estimated boundary")
     wc = np.vstack([world_2d, world_2d[:1]])
     ax.plot(wc[:, 0], wc[:, 1], "--", color="#94a3b8", label="known rectangle")
-    ax.scatter(corners_2d[:, 0], corners_2d[:, 1], color=ACCENT, s=40, label="re-triangulated corners")
+    if len(result["boundary_3d"]):
+        b2 = to_plane(result["boundary_3d"])
+        ax.scatter(b2[:, 0], b2[:, 1], color="#16a34a", s=40, zorder=3, label="triangulated boundary points")
+        for j, (bu, bv) in enumerate(b2):
+            ax.annotate(f"B{j + 1}", (bu, bv), textcoords="offset points", xytext=(5, 5), fontsize=8)
+    ax.scatter(corners_2d[:, 0], corners_2d[:, 1], color=ACCENT, s=40, zorder=3, label="re-triangulated corners")
     ax.set_aspect("equal")
     ax.set_xlabel("in-plane u (mm)")
     ax.set_ylabel("in-plane v (mm)")
-    ax.set_title("Top-down view of reconstructed boundary", fontsize=12, fontweight="700")
+    ax.set_title(f"Estimated boundary (area {result['boundary_estimate']['area']:.0f} mm$^2$)", fontsize=12, fontweight="700")
     ax.legend(fontsize=8)
     fig.tight_layout()
     fig.savefig(out_path, dpi=150)

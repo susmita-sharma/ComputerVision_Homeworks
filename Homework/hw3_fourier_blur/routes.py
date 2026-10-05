@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 
+from Homework import samples
 from . import spectral_blur as sb
 
 hw3 = Blueprint("hw3", __name__, url_prefix="/hw3", template_folder="templates", static_folder="static")
@@ -64,7 +65,9 @@ def _run_one_kernel(image, kernel_type, ksize, sigma, stamp):
 @hw3.route("/", methods=["GET", "POST"])
 def blur_view():
     if request.method == "GET":
-        return render_template("hw3/frequency_blur.html", results=None)
+        sample = samples.load("hw3", "blur")
+        return render_template("hw3/frequency_blur.html", results=sample and sample["results"],
+                               sample_info=sample and sample["_sample"])
 
     f = request.files.get("image")
     if not f or not f.filename:
@@ -74,7 +77,7 @@ def blur_view():
     ksize = int(request.form.get("ksize", 15))
     sigma = float(request.form.get("sigma", 0) or 0)
 
-    in_path = os.path.join(UPLOAD_DIR, f.filename)
+    in_path = os.path.join(UPLOAD_DIR, f"{int(time.time() * 1000)}_{os.path.basename(f.filename)}")
     f.save(in_path)
 
     image = cv2.imread(in_path, cv2.IMREAD_COLOR)
@@ -92,5 +95,9 @@ def blur_view():
     stamp = str(int(time.time() * 1000))
     # exactly one output image per kernel type: gaussian and box
     results = [_run_one_kernel(image, kt, ksize, sigma, stamp) for kt in ("gaussian", "box")]
+    for r in results:  # JSON-safe numbers so the run can be saved as a sample
+        r["metrics"] = {k: (v.item() if hasattr(v, "item") else list(v) if isinstance(v, tuple) else v)
+                        for k, v in r["metrics"].items()}
 
-    return render_template("hw3/frequency_blur.html", results=results)
+    offer = samples.offer("hw3", "blur", {"results": results})
+    return render_template("hw3/frequency_blur.html", results=results, sample_offer=offer)

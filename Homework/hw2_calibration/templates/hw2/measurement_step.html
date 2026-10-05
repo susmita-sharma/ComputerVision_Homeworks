@@ -1,4 +1,5 @@
 {% extends "shell.html" %}
+{% import "_samples.html" as smp with context %}
 {% block content %}
 <div class="card">
   <h1>Step 2 - Real-World Measurement</h1>
@@ -50,12 +51,14 @@
 
       canvas.addEventListener('click', (e) => {
         if (points.length >= 2) return;
+        // map through the canvas's real on-screen size: CSS (max-width:100%)
+        // can shrink it below its drawn size on narrower windows
         const rect = canvas.getBoundingClientRect();
         const scale = parseFloat(canvas.dataset.scale);
-        const xDisplay = e.clientX - rect.left;
-        const yDisplay = e.clientY - rect.top;
-        const xOriginal = xDisplay / scale;
-        const yOriginal = yDisplay / scale;
+        const xOriginal = (e.clientX - rect.left) / rect.width * img.width;
+        const yOriginal = (e.clientY - rect.top) / rect.height * img.height;
+        const xDisplay = xOriginal * scale;   // canvas drawing coordinates
+        const yDisplay = yOriginal * scale;
         points.push([xOriginal, yOriginal]);
 
         ctx.fillStyle = 'red';
@@ -88,7 +91,11 @@
 
 {% if result %}
 <div class="card">
+  {{ smp.banner(sample_info) }}
   <h2>Result</h2>
+  {% if result.annotated_url %}
+  <img src="{{ result.annotated_url }}" style="max-width:100%; max-height:700px; border-radius:8px; border:1px solid var(--border); margin-bottom:10px;">
+  {% endif %}
   <div class="stat-grid">
     <div class="stat-box"><div class="label">Pixel distance</div><div class="value">{{ "%.1f"|format(result.pixel_dist) }} px</div></div>
     <div class="stat-box"><div class="label">Distance to object</div><div class="value">{{ result.distance_mm|round(1) }} mm</div></div>
@@ -96,13 +103,16 @@
     <div class="stat-box"><div class="label">Real length (cm)</div><div class="value">{{ "%.2f"|format(result.real_cm) }}</div></div>
   </div>
   <p class="muted">Computed as L = (pixel_distance x Z) / f, using the calibrated focal length in pixels and the distance you entered. See the report for the full derivation.</p>
+  {{ smp.save_button(sample_offer) }}
 </div>
 {% endif %}
 
+{% if not sample_info %}
 <div class="card">
   <h2>Offline example output</h2>
   <p class="muted">Two points clicked on a real object photo from the repo, converted to a real-world length with the calibrated camera matrix -
     this is what clicking through the form above produces.</p>
   <img src="{{ url_for('hw2.static', filename='demo/measurement_example.jpg') }}" style="max-width:100%; border-radius:8px; border:1px solid var(--border);">
 </div>
+{% endif %}
 {% endblock %}

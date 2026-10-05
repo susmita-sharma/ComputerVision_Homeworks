@@ -36,3 +36,6 @@ Homework/hw5_motion_sfm/static/sfm_uploads/*
 !Homework/hw5_motion_sfm/static/sfm_uploads/.gitkeep
 Homework/hw5_motion_sfm/static/outputs/*
 !Homework/hw5_motion_sfm/static/outputs/.gitkeep
+
+# pending (not yet saved) offline samples - the saved ones under */static/samples/ ARE committed
+Homework/_pending_samples/

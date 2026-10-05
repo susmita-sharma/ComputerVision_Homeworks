@@ -2,11 +2,73 @@
 {% block content %}
 <div class="card">
   <h1>HW5 &middot; Optical Flow, Tracking &amp; Structure from Motion</h1>
-  <p class="muted">Three linked steps, run on real video/photos you supply.</p>
-  <ol>
-    <li><a href="{{ url_for('hw5.flow_view') }}">Optical Flow</a></li>
-    <li><a href="{{ url_for('hw5.tracking_view') }}">Motion Tracking &amp; Bilinear Interpolation</a></li>
-    <li><a href="{{ url_for('hw5.sfm_view') }}">Structure from Motion</a></li>
-  </ol>
+  <p class="muted">The full workflow, in order. Each step's page explains its maths, runs on your own videos/photos,
+    and has a <strong>Download all outputs (ZIP)</strong> button so you can keep the sample output of every module
+    for the submission.</p>
+</div>
+
+<div class="card">
+  <h2>0 &middot; Capture</h2>
+  <ul>
+    <li><strong>Two videos</strong>, each with &ge; 30 s containing motion. Good choices: people walking past a fixed
+      phone, traffic, a pet, a ball being thrown, or one video where <em>you</em> pan/walk with the camera (so the
+      flow shows camera ego-motion as well as object motion). Hold the phone steady, or use a tripod for the
+      object-motion video.</li>
+    <li><strong>Four photos</strong> of one flat rectangular object (book, box face, picture frame) from 4 clearly
+      different viewpoints. Same phone, same zoom, same orientation. Measure the object's width/height with a
+      ruler and note where each photo was taken from.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h2>1 &middot; <a href="{{ url_for('hw5.flow_view') }}">Optical flow + tracking video</a> (per video)</h2>
+  <p>Upload Video 1 and Video 2 (separate slots). For each, the app computes dense optical flow on every consecutive
+    frame pair and renders a <strong>real-time 2&times;2 video</strong>: moving objects boxed with IDs, speed and
+    direction; corner features with motion trails; the color-coded flow field; flow vectors; and the
+    camera-compensated motion map that decides what counts as an object. You watch frames appear live while it
+    processes.</p>
+  <p class="muted">Saves: <code>flow_tracking.webm</code>, <code>stats.png</code>, <code>stats.csv</code>,
+    <code>objects.csv</code>, <code>summary.md</code> (the "what can be inferred" write-up with numbers), key frames,
+    and the frame pair for step 2.</p>
+</div>
+
+<div class="card">
+  <h2>2 &middot; <a href="{{ url_for('hw5.tracking_view') }}">Tracking equations, bilinear interpolation, validation</a> (per video)</h2>
+  <p>The page derives Lucas-Kanade from brightness constancy and sets up the two-frame tracking problem. It also
+    derives bilinear interpolation. Then, for each video's consecutive frame pair (one click from step 1), it tracks
+    points with the from-scratch implementation. The predicted locations are compared with the <strong>actual
+    pixel locations</strong> measured independently by template matching, and with OpenCV. A worked example shows
+    the real numbers (normal matrix, Newton iterations, the bilinear lookup).</p>
+  <p class="muted">Saves: annotated frame, zoom crops, <code>tracking_table.csv</code>, <code>tracking_report.md</code>,
+    both frames.</p>
+</div>
+
+<div class="card">
+  <h2>3 &middot; <a href="{{ url_for('hw5.sfm_view') }}">Structure from motion (4 viewpoints, planar object)</a></h2>
+  <p>Upload the 4 photos and click the 4 corners plus a few extra points in each. The app computes each camera's
+    pose (homography &rarr; \(R, t\), refined with PnP), triangulates the extra points from all 4 views, and
+    estimates the object's boundary, area and edge lengths. It reports the camera parameters \(K\) and every camera
+    position, and shows the full matrix workout for each view.</p>
+  <p class="muted">Saves: the 4 input photos, annotated photos with re-projection, 3D and top-down plots,
+    <code>cameras.csv</code>, <code>points.json</code>, <code>sfm_report.md</code> (all calculations).</p>
+</div>
+
+<div class="card">
+  <h2>Assignment checklist &rarr; where it is answered</h2>
+  <table class="result-table">
+    <thead><tr><th>Requirement</th><th>Where</th></tr></thead>
+    <tbody>
+      <tr><td>2 videos, &ge; 30 s of motion each</td><td>Step 1, slots Video 1 / Video 2</td></tr>
+      <tr><td>Compute optical flow, visualize as a video</td><td>Step 1 video (panels 2-3) + download</td></tr>
+      <tr><td>What can be inferred from optical flow + evidence</td><td>Step 1 "Evidence" section, plots, object table, <code>summary.md</code></td></tr>
+      <tr><td>Derive motion tracking equations from fundamentals</td><td>Step 2, sections 1-3, 5</td></tr>
+      <tr><td>Set up tracking for two image frames</td><td>Step 2, section 3</td></tr>
+      <tr><td>Derive/describe bilinear interpolation</td><td>Step 2, section 4 + worked example</td></tr>
+      <tr><td>Two consecutive frames per video: validate theory vs actual pixel locations</td><td>Step 2 result (one per video): table, zoom crops, error stats</td></tr>
+      <tr><td>SfM from 4 viewpoints, recover boundary of a planar object</td><td>Step 3 result</td></tr>
+      <tr><td>Mathematical workouts and calculations</td><td>Step 3 "Mathematical workout" + <code>sfm_report.md</code></td></tr>
+      <tr><td>Images, camera positions and camera parameters</td><td>Step 3 "Camera parameters" table, ZIP (photos + <code>cameras.csv</code>)</td></tr>
+    </tbody>
+  </table>
 </div>
 {% endblock %}

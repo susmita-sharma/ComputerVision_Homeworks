@@ -1,0 +1,33 @@
+{# Offline-sample UI shared by every homework page:
+   save_button(offer)  - under a live result, when saving is enabled (local runs)
+   banner(info)        - on top of a saved sample being shown #}
+
+{% macro save_button(offer, label="Save this run as the offline sample") %}
+{% if offer %}
+<form method="POST" action="{{ offer.save_url }}" class="sample-save">
+  <input type="hidden" name="token" value="{{ offer.token }}">
+  <input type="hidden" name="next" value="{{ request.full_path if request.method == 'GET' else request.referrer or request.path }}">
+  <button type="submit">&#128190; {{ label }}</button>
+  <span class="muted">Copies these outputs into the repo
+    (<code>static/samples/{{ offer.key }}/</code>) so anyone can view them without uploading.
+    {% if offer.exists %}<strong>Replaces the current sample.</strong>{% endif %}</span>
+</form>
+{% endif %}
+{% endmacro %}
+
+{% macro banner(info) %}
+{% if info %}
+<div class="sample-banner">
+  <span>&#128193; <strong>Offline sample</strong>: a saved real run, shown without any upload
+    {% if info.saved_at %}(saved {{ info.saved_at }}){% endif %}.</span>
+  <a href="{{ info.zip_url }}">&#11015; Download sample (ZIP)</a>
+  {% if info.delete_url %}
+  <form method="POST" action="{{ info.delete_url }}" style="display:inline;"
+        onsubmit="return confirm('Delete this offline sample?');">
+    <input type="hidden" name="next" value="{{ request.full_path }}">
+    <button type="submit" class="sample-del">delete sample</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+{% endmacro %}
