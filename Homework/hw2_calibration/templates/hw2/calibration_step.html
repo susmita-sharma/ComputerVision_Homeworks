@@ -1,4 +1,5 @@
 {% extends "shell.html" %}
+{% import "_samples.html" as smp with context %}
 {% block content %}
 <div class="card">
   <h1>Step 1 - Camera Calibration</h1>
@@ -22,8 +23,11 @@
 
 {% if result %}
 <div class="card">
+  {{ smp.banner(sample_info) }}
   <h2>Result</h2>
-  <p>Uploaded images succesfully.</p>
+  {% if not sample_info %}<p>Uploaded images successfully.</p>{% endif %}
+  <p class="muted">Chessboard detected in {{ result.n_used }} of {{ result.n_uploaded }} photos
+    ({{ result.image_size[0] }}&times;{{ result.image_size[1] }} px).</p>
   <div class="stat-grid">
     <div class="stat-box"><div class="label">fx</div><div class="value">{{ "%.2f"|format(result.fx) }}</div></div>
     <div class="stat-box"><div class="label">fy</div><div class="value">{{ "%.2f"|format(result.fy) }}</div></div>
@@ -32,14 +36,21 @@
     <div class="stat-box"><div class="label">Mean reprojection error</div><div class="value">{{ "%.4f"|format(result.mean_error) }} px</div></div>
   </div>
   <p style="margin-top:16px;"><strong>Distortion coefficients</strong> (k1, k2, p1, p2, k3): <code>{{ result.dist_coeffs }}</code></p>
-  <p class="muted">Saved to static/calib/camera_calib.npz</p>
+  {% if result.corners_url %}
+  <p class="muted" style="margin-top:14px;">Detected corners on one of the photos:</p>
+  <img src="{{ result.corners_url }}" style="max-width:100%; border-radius:8px; border:1px solid var(--border);">
+  {% endif %}
+  {% if not sample_info %}<p class="muted">Saved to static/calib/camera_calib.npz</p>{% endif %}
+  {{ smp.save_button(sample_offer) }}
 </div>
 {% endif %}
 
+{% if not sample_info %}
 <div class="card">
   <h2>Offline example output</h2>
   <p class="muted">Corner detection run on one of the repo's own calibration photos (10&times;7 inner corners), shown here so you can see what a
     successful detection looks like without uploading anything.</p>
   <img src="{{ url_for('hw2.static', filename='demo/calibration_corners.jpg') }}" style="max-width:100%; border-radius:8px; border:1px solid var(--border);">
 </div>
+{% endif %}
 {% endblock %}

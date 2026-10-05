@@ -1,4 +1,5 @@
 {% extends "shell.html" %}
+{% import "_samples.html" as smp with context %}
 {% block content %}
 <div class="card">
   <h1>HW5 Step 2 &middot; Motion Tracking, Bilinear Interpolation &amp; Validation</h1>
@@ -56,14 +57,63 @@
   <p class="muted">Implemented from scratch in <code>Homework/hw5_motion_sfm/bilinear.py</code> (no
     <code>cv2.remap</code>) and verified against it in <code>tests/test_hw5_bilinear.py</code> - agreement to
     &lt;0.01 intensity units at random fractional coordinates.</p>
+
+  <h3>5. Large motions: coarse-to-fine pyramid</h3>
+  <p>The Taylor step is only valid while \((u,v)\) is small compared with the window. So the frames are repeatedly
+    blurred and halved (levels \(L=3,2,1,0\)). The iteration above is solved at the coarsest level, where a 12 px
+    motion is only 1.5 px. That estimate is doubled to initialise the next finer level:
+    \(\mathbf d^{L-1}_{\text{init}} = 2\,\mathbf d^{L}\), down to full resolution.</p>
+  <p>Gradients are Sobel derivatives divided by 8 (the 3&times;3 Sobel kernel's weight per unit step), so that
+    \(I_x, I_y\) are in grey levels per pixel, the same units as \(I_t\).</p>
+
+  <h3>6. How the result is validated against actual pixel locations</h3>
+  <p>Each picked point is located in frame \(t{+}1\) in three independent ways:</p>
+  <ul>
+    <li><span style="color:#fca5a5">Red</span>: <strong>our from-scratch LK</strong>, the theory above.</li>
+    <li><span style="color:#86efac">Green</span>: the <strong>actual location by template matching</strong>. The
+      \(21\times21\) patch around the point in frame \(t\) is slid over frame \(t{+}1\) and the position with
+      the highest normalised cross-correlation is taken, refined to sub-pixel with a parabola fit. This uses no
+      gradients and no Taylor expansion, so it is an independent measurement.</li>
+    <li><span style="color:#93c5fd">Blue</span>: OpenCV's <code>calcOpticalFlowPyrLK</code> as a second reference.</li>
+  </ul>
+  <p>The theory is also checked directly: brightness constancy says \(I_2(\mathbf x + \mathbf d) \approx
+    I_1(\mathbf x)\). So the RMS of \(I_2 - I_1\) over the window should drop sharply when the window is moved
+    by the predicted \(\mathbf d\) compared with not moving it.</p>
 </div>
+
+{% if sample_list %}
+<div class="card">
+  <h2>Offline samples</h2>
+  <p>Saved validation runs you can open without uploading anything:
+    {% for s in sample_list %}<a href="{{ s.url }}"><button type="button" style="margin:6px 6px 0 0; padding:6px 12px; font-size:13px;">{{ s.label }}</button></a>{% endfor %}
+  </p>
+  <p class="muted">Want to run it yourself? <a href="{{ url_for('hw5.tracking_view', upload=1) }}">Upload your own frame pair</a>
+    or start from the <a href="{{ url_for('hw5.flow_view') }}">Optical Flow page</a>.</p>
+</div>
+{% endif %}
+
+{% if saved_runs %}
+<div class="card">
+  <h2>Saved tracking results (this session)</h2>
+  <ul>
+    {% for r in saved_runs %}
+    <li><a href="{{ r.url }}">{{ r.label }}</a> &middot; <a href="{{ r.zip }}">download ZIP</a></li>
+    {% endfor %}
+  </ul>
+  <p class="muted">The assignment needs one frame pair from <em>each</em> video: run Video 1's pair and Video 2's pair
+    (buttons on the <a href="{{ url_for('hw5.flow_view') }}">Optical Flow page</a>).</p>
+</div>
+{% endif %}
 
 {% if not prev_url or not next_url %}
 <div class="card">
-  <h2>Upload two consecutive frames</h2>
-  <p class="muted">Or go run <a href="{{ url_for('hw5.flow_view') }}">Optical Flow</a> first and use its
-    "use this pair" button, which skips this upload step.</p>
+  <h2>Choose two consecutive frames</h2>
+  <p>Best: run the <a href="{{ url_for('hw5.flow_view') }}">Optical Flow</a> step first and click
+    <em>"Track points on this pair"</em> under each video. That hands over two consecutive original-resolution
+    frames from the most active moment of the clip. Or upload two frames yourself:</p>
   <form method="POST" action="{{ url_for('hw5.tracking_upload') }}" enctype="multipart/form-data">
+    <label>Label (e.g. "Video 1")</label>
+    <input type="text" name="label" value="Uploaded pair">
     <label>Frame t</label>
     <input type="file" name="prev_frame" accept="image/*" required>
     <label>Frame t+1 (the very next frame)</label>
@@ -71,32 +121,37 @@
     <button type="submit">Continue to point picking</button>
   </form>
 </div>
-{% else %}
+{% elif not result %}
 <div class="card">
-  <h2>Pick points to track</h2>
-  <p>Click a handful of points on <strong>frame t</strong> below (textured spots - corners, edges - track best;
-    flat regions will fail to converge, which is itself evidence of the aperture problem). Frame t+1 is shown next
-    to it for reference only.</p>
+  <h2>Pick points to track &middot; {{ label }}</h2>
+  <p>Click points on <strong>frame t</strong> (left). Textured spots such as corners, the edges of a moving object,
+    or text track best. A flat region or a single straight edge fails to converge, which demonstrates the aperture
+    problem. You can also let the app pick strong corners automatically (half on moving parts, half static).</p>
   <div class="comparison-grid" style="grid-template-columns: 1fr 1fr;">
     <figure>
-      <canvas id="clickCanvas" style="cursor:crosshair; max-width:100%; border:1px solid var(--border);"></canvas>
-      <figcaption>frame t - click points here</figcaption>
+      <canvas id="clickCanvas" style="cursor:crosshair; width:100%;"></canvas>
+      <figcaption>frame t &middot; click points here</figcaption>
     </figure>
     <figure>
-      <img id="nextImg" src="{{ next_url }}" style="max-width:100%; border-radius:5px;">
-      <figcaption>frame t+1</figcaption>
+      <img id="nextImg" src="{{ next_url }}">
+      <figcaption>frame t+1 (reference)</figcaption>
     </figure>
   </div>
-  <p class="muted" id="clickStatus">Click points, then hit Run.</p>
+  <p class="muted" id="clickStatus">0 point(s) picked.</p>
 
   <form method="POST" action="{{ url_for('hw5.tracking_run') }}" id="trackForm">
     <input type="hidden" name="prev_url" value="{{ prev_url }}">
     <input type="hidden" name="next_url" value="{{ next_url }}">
+    <input type="hidden" name="label" value="{{ label }}">
     <input type="hidden" name="points" id="pointsField">
-    <label>LK window size (px)</label>
+    <label><input type="checkbox" name="auto" id="autoBox" checked style="width:auto; display:inline; margin-right:6px;">
+      Also auto-pick <input type="number" name="n_auto" value="10" min="2" max="20" style="width:70px; display:inline;"> strong corners</label>
+    <label>LK window size (px, odd)</label>
     <input type="number" name="window" value="21" min="7" max="41" step="2">
-    <button type="button" id="undoBtn">Undo last point</button>
-    <button type="submit" id="runBtn" disabled>Run tracking + validate</button>
+    <div>
+      <button type="button" id="undoBtn">Undo last point</button>
+      <button type="submit" id="runBtn">Run tracking + validate</button>
+    </div>
   </form>
 
   <script>
@@ -107,44 +162,27 @@
     let points = [];
 
     function redraw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      const scale = parseFloat(canvas.dataset.scale);
+      ctx.drawImage(img, 0, 0);
+      const r = Math.max(4, img.width / 150);
       points.forEach((p, i) => {
         ctx.fillStyle = 'red';
-        ctx.beginPath();
-        ctx.arc(p[0] * scale, p[1] * scale, 5, 0, 2 * Math.PI);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(p[0], p[1], r, 0, 2 * Math.PI); ctx.fill();
         ctx.fillStyle = 'yellow';
-        ctx.font = '12px sans-serif';
-        ctx.fillText(i + 1, p[0] * scale + 7, p[1] * scale - 7);
+        ctx.font = (r * 3) + 'px sans-serif';
+        ctx.fillText(i + 1, p[0] + r * 1.5, p[1] - r * 1.5);
       });
-      document.getElementById('runBtn').disabled = points.length === 0;
+      document.getElementById('runBtn').disabled = points.length === 0 && !document.getElementById('autoBox').checked;
       document.getElementById('clickStatus').innerText = points.length + ' point(s) picked.';
     }
-
-    img.onload = () => {
-      const maxWidth = 500;
-      const scale = Math.min(1, maxWidth / img.width);
-      canvas.width = img.width * scale;
-      canvas.height = img.height * scale;
-      canvas.dataset.scale = scale;
-      document.getElementById('nextImg').style.maxWidth = canvas.width + 'px';
-      redraw();
-    };
-
+    img.onload = () => { canvas.width = img.width; canvas.height = img.height; redraw(); };
     canvas.addEventListener('click', (e) => {
       const rect = canvas.getBoundingClientRect();
-      const scale = parseFloat(canvas.dataset.scale);
-      points.push([(e.clientX - rect.left) / scale, (e.clientY - rect.top) / scale]);
+      const s = img.width / rect.width;   // canvas is drawn at full resolution, displayed scaled
+      points.push([(e.clientX - rect.left) * s, (e.clientY - rect.top) * s]);
       redraw();
     });
-
-    document.getElementById('undoBtn').addEventListener('click', () => {
-      points.pop();
-      redraw();
-    });
-
+    document.getElementById('undoBtn').addEventListener('click', () => { points.pop(); redraw(); });
+    document.getElementById('autoBox').addEventListener('change', redraw);
     document.getElementById('trackForm').addEventListener('submit', () => {
       document.getElementById('pointsField').value = JSON.stringify(points);
     });
@@ -153,24 +191,42 @@
 {% endif %}
 
 {% if result %}
-<div class="card">
-  <h2>Validation result</h2>
-  <p class="muted">Red = from-scratch Lucas-Kanade prediction (the theory above, actually run). Green = OpenCV's
-    pyramidal LK reference (an independently-optimized implementation of the same brightness-constancy math),
-    used here as the "actual" pixel location since no external ground truth exists for a real video. The two
-    should land within a fraction of a pixel of each other when the derivation and the implementation are both
-    correct.</p>
-  <img src="{{ result.annotated_url }}" style="max-width:100%; border-radius:8px; border:1px solid var(--border);">
-  <div class="stat-grid">
-    <div class="stat-box"><div class="label">Mean agreement error</div><div class="value">{{ "%.3f"|format(result.mean_err) }} px</div></div>
-    <div class="stat-box"><div class="label">Max agreement error</div><div class="value">{{ "%.3f"|format(result.max_err) }} px</div></div>
-    <div class="stat-box"><div class="label">Window size</div><div class="value">{{ result.window }} px</div></div>
+{% set sm = result.summary %}
+<div class="card" id="result">
+  {{ smp.banner(sample_info) }}
+  <h2>Validation result &middot; {{ result.label }}</h2>
+  <div class="dl-row" style="display:flex; flex-wrap:wrap; gap:8px;">
+    <a href="{{ result.zip_url }}"><button type="button" style="margin-top:0;">&#11015; Download all outputs (ZIP)</button></a>
+    <a href="{{ result.annotated_url }}" download><button type="button" style="margin-top:0; background:#64748b;">annotated frame</button></a>
+    <a href="{{ result.zoom_url }}" download><button type="button" style="margin-top:0; background:#64748b;">zoom crops</button></a>
+    <a href="{{ result.csv_url }}" download><button type="button" style="margin-top:0; background:#64748b;">table (.csv)</button></a>
+    <a href="{{ result.report_url }}" download><button type="button" style="margin-top:0; background:#64748b;">worked example (.md)</button></a>
   </div>
 
-  <table class="result-table" style="margin-top:16px;">
+  <div class="stat-grid">
+    <div class="stat-box"><div class="label">Mean |ours &minus; actual (NCC)|</div><div class="value">{{ "%.3f"|format(sm.mean_err_match) }} px</div></div>
+    <div class="stat-box"><div class="label">Mean |ours &minus; OpenCV|</div><div class="value">{{ "%.3f"|format(sm.mean_err_cv) }} px</div></div>
+    <div class="stat-box"><div class="label">Brightness residual (RMS)</div><div class="value">{{ "%.1f"|format(sm.mean_rms_before) }} &rarr; {{ "%.1f"|format(sm.mean_rms_after) }}</div></div>
+    <div class="stat-box"><div class="label">Converged</div><div class="value">{{ sm.n_converged }} / {{ result.rows|length }}</div></div>
+  </div>
+  <p class="muted" style="margin-top:10px;">Brightness residual = RMS grey-level difference of the {{ result.window }}&times;{{ result.window }}
+    window between frames, assuming no motion &rarr; after moving it by our predicted displacement. A big drop is the
+    brightness-constancy equation holding at the predicted location.</p>
+
+  <h3>Zoomed view per point</h3>
+  <p class="muted">White &times; = where the point was in frame t &middot; <span style="color:#d00">red ring</span> = our LK
+    prediction &middot; <span style="color:#090">green ring</span> = actual location by template matching &middot;
+    <span style="color:#06c">blue dot</span> = OpenCV LK. Pixels are magnified with no smoothing.</p>
+  <img src="{{ result.zoom_url }}" style="width:100%; border-radius:8px; border:1px solid var(--border);">
+
+  <h3>Full frame t+1</h3>
+  <p class="muted">Yellow arrow = predicted motion from the original position (white &times;).</p>
+  <img src="{{ result.annotated_url }}" style="width:100%; max-height:900px; object-fit:contain; border-radius:8px; border:1px solid var(--border);">
+
+  <table class="result-table" style="margin-top:16px; font-size:12.5px;">
     <thead><tr>
-      <th>pt</th><th>x0,y0</th><th>manual pred (x,y)</th><th>OpenCV actual (x,y)</th>
-      <th>manual displacement</th><th>agreement err (px)</th><th>converged</th>
+      <th>pt</th><th>start (x,y)</th><th>ours (x,y)</th><th>actual NCC (x,y)</th><th>OpenCV (x,y)</th>
+      <th>displacement</th><th>err vs NCC</th><th>err vs CV</th><th>RMS before&rarr;after</th><th>conv.</th>
     </tr></thead>
     <tbody>
       {% for r in result.rows %}
@@ -178,14 +234,74 @@
         <td>{{ loop.index }}</td>
         <td>{{ "%.1f"|format(r.x0) }}, {{ "%.1f"|format(r.y0) }}</td>
         <td>{{ "%.2f"|format(r.x_pred) }}, {{ "%.2f"|format(r.y_pred) }}</td>
+        <td>{{ "%.2f"|format(r.x_match) }}, {{ "%.2f"|format(r.y_match) }}</td>
         <td>{{ "%.2f"|format(r.x_actual) }}, {{ "%.2f"|format(r.y_actual) }}</td>
-        <td>{{ "%.2f"|format(r.dx) }}, {{ "%.2f"|format(r.dy) }}</td>
+        <td>{{ "%+.2f"|format(r.dx) }}, {{ "%+.2f"|format(r.dy) }}</td>
+        <td>{{ "%.3f"|format(r.err_vs_match_px) }}</td>
         <td>{{ "%.3f"|format(r.agreement_err_px) }}</td>
-        <td>{{ "yes" if r.converged else "no (flat region?)" }}</td>
+        <td>{{ "%.1f"|format(r.rms_no_motion) }} &rarr; {{ "%.1f"|format(r.rms_tracked) }}</td>
+        <td>{{ "yes" if r.converged else "no" }}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
+  <p class="muted">Disagreements over ~0.5 px usually mean the window straddles a moving object and the static background
+    (two motions in one window break the "constant flow in W" assumption), the point is on a straight edge
+    (aperture problem), or it sits in a low-texture area (low NCC score).</p>
+</div>
+
+{% set r0 = result.rows[result.wk or 0] %}
+{% set lv = result.levels[-1] if result.levels else None %}
+<div class="theory-box">
+  <h3>Worked example: point {{ (result.wk or 0) + 1 }} (the point that moved the most) with the real numbers</h3>
+  <p>Start in frame \(t\): \((x_0,y_0) = ({{ "%.2f"|format(r0.x0) }},\ {{ "%.2f"|format(r0.y0) }})\), window
+    {{ result.window }}&times;{{ result.window }}.</p>
+  <p><strong>Pyramid</strong> (displacement in that level's pixels):</p>
+  <table style="width:100%; font-size:13px; border-collapse:collapse;">
+    <tr style="color:#93c5fd;"><td>level</td><td>scale</td><td>initial guess</td><td>result \(\mathbf d\)</td><td>iterations</td></tr>
+    {% for l in result.levels %}
+    <tr><td>{{ l.level }}</td><td>1/{{ l.scale|int }}</td><td>({{ "%.3f"|format(l.guess_in[0]) }}, {{ "%.3f"|format(l.guess_in[1]) }})</td>
+      <td>({{ "%.3f"|format(l.d_out[0]) }}, {{ "%.3f"|format(l.d_out[1]) }})</td><td>{{ l.n_iters }}</td></tr>
+    {% endfor %}
+  </table>
+  {% if lv and lv.Sxx is defined %}
+  <p><strong>Full-resolution normal matrix</strong> over the {{ lv.n_pixels }} window pixels:</p>
+  <p class="eq">$$A^TA = \begin{bmatrix} {{ "%.1f"|format(lv.Sxx) }} & {{ "%.1f"|format(lv.Sxy) }} \\ {{ "%.1f"|format(lv.Sxy) }} & {{ "%.1f"|format(lv.Syy) }} \end{bmatrix},
+    \quad \lambda_{\min} = {{ "%.1f"|format(lv.eig_min) }},\ \lambda_{\max} = {{ "%.1f"|format(lv.eig_max) }}$$</p>
+  <p>Both eigenvalues are well above zero, so the window has texture in two directions and \(A^TA\) is invertible.
+    Each Newton step solves \(\begin{bmatrix}\Delta u\\ \Delta v\end{bmatrix} = (A^TA)^{-1}\left(-\begin{bmatrix}\sum I_xI_t\\ \sum I_yI_t\end{bmatrix}\right)\)
+    with \(I_t = I_2(\mathbf x + \mathbf d) - I_1(\mathbf x)\) re-sampled bilinearly:</p>
+  <table style="width:100%; font-size:13px; border-collapse:collapse;">
+    <tr style="color:#93c5fd;"><td>it</td><td>x</td><td>y</td><td>\(\sum I_xI_t\)</td><td>\(\sum I_yI_t\)</td><td>\(\Delta u\)</td><td>\(\Delta v\)</td><td>RMS \(I_t\)</td></tr>
+    {% for it in lv.iters %}
+    <tr><td>{{ it.it }}</td><td>{{ "%.3f"|format(it.x) }}</td><td>{{ "%.3f"|format(it.y) }}</td><td>{{ "%.1f"|format(it.SxIt) }}</td>
+      <td>{{ "%.1f"|format(it.SyIt) }}</td><td>{{ "%+.4f"|format(it.du) }}</td><td>{{ "%+.4f"|format(it.dv) }}</td><td>{{ "%.2f"|format(it.rms_residual) }}</td></tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+  <p>Result: \(\mathbf d = ({{ "%+.3f"|format(r0.dx) }},\ {{ "%+.3f"|format(r0.dy) }})\) &rarr; predicted
+    \(({{ "%.3f"|format(r0.x_pred) }},\ {{ "%.3f"|format(r0.y_pred) }})\). Measured by template matching:
+    \(({{ "%.3f"|format(r0.x_match) }},\ {{ "%.3f"|format(r0.y_match) }})\), a difference of
+    {{ "%.3f"|format(r0.err_vs_match_px) }} px.</p>
+
+  {% set b = result.bil %}
+  <h3>Worked example: bilinear interpolation at that predicted location</h3>
+  <p>\(x = {{ "%.4f"|format(b.x) }},\ y = {{ "%.4f"|format(b.y) }}\ \Rightarrow\ x_0 = {{ b.x0 }},\ y_0 = {{ b.y0 }},\
+    w_x = {{ "%.4f"|format(b.wx) }},\ w_y = {{ "%.4f"|format(b.wy) }}\)</p>
+  <p>Neighbours in frame \(t{+}1\): \(I(x_0,y_0) = {{ b.Ia|int }},\ I(x_1,y_0) = {{ b.Ib|int }},\ I(x_0,y_1) = {{ b.Ic|int }},\ I(x_1,y_1) = {{ b.Id|int }}\)</p>
+  <p class="eq">$$R_0 = (1-{{ "%.4f"|format(b.wx) }})\cdot{{ b.Ia|int }} + {{ "%.4f"|format(b.wx) }}\cdot{{ b.Ib|int }} = {{ "%.4f"|format(b.R0) }}$$</p>
+  <p class="eq">$$R_1 = (1-{{ "%.4f"|format(b.wx) }})\cdot{{ b.Ic|int }} + {{ "%.4f"|format(b.wx) }}\cdot{{ b.Id|int }} = {{ "%.4f"|format(b.R1) }}$$</p>
+  <p class="eq">$$I(x,y) = (1-{{ "%.4f"|format(b.wy) }})\cdot{{ "%.4f"|format(b.R0) }} + {{ "%.4f"|format(b.wy) }}\cdot{{ "%.4f"|format(b.R1) }} = {{ "%.4f"|format(b.value) }}$$</p>
+  <p>Check: <code>bilinear.py</code> gives {{ "%.4f"|format(b.ours) }}, and OpenCV <code>cv2.remap</code> gives
+    {{ "%.4f"|format(b.cv2_remap) }}. Rounding to the nearest pixel instead would give {{ b.nearest|int }}, which
+    is why LK needs interpolation to reach sub-pixel accuracy.</p>
+</div>
+
+<div class="card">
+  {{ smp.save_button(sample_offer, "Save this " ~ result.label ~ " validation as the offline sample") }}
+  <p><a href="{{ url_for('hw5.tracking_view', prev=result.prev_url, next=result.next_url, label=result.label) }}">Pick different points on this pair</a>
+    &middot; <a href="{{ url_for('hw5.flow_view') }}">back to Optical Flow (other video)</a>
+    &middot; <a href="{{ url_for('hw5.sfm_view') }}">next: Structure from Motion &rarr;</a></p>
 </div>
 {% endif %}
 {% endblock %}
