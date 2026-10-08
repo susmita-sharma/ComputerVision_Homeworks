@@ -1,0 +1,176 @@
+{
+  "label": "Video 1",
+  "video_name": "v1_1791237462462_IMG_2117.MOV",
+  "src_fps": 30.0,
+  "out_fps": 30.0,
+  "stride": 1,
+  "src_size": [
+    1080,
+    1920
+  ],
+  "analysis_size": [
+    224,
+    400
+  ],
+  "clip_duration_sec": 43.23,
+  "start_sec": 0.0,
+  "processed_sec": 29.97,
+  "n_pairs": 899,
+  "overall": {
+    "peak_mean_mag": 0.3762570917606354,
+    "avg_mean_mag": 0.11861733995270278,
+    "peak_t": 5.133333333333334,
+    "peak_moving_frac": 11.146205357142858,
+    "avg_moving_frac": 2.7306208286985543,
+    "max_objects": 3,
+    "frames_with_objects_pct": 53.281423804226925,
+    "median_cam_shift": 0.029603341521583785,
+    "out_fps": 30.0
+  },
+  "inferences": [
+    "When: something was moving (>0.5% of pixels moving more than 1 px/frame, or a moving object detected) in 53% of the 30.0s analysed. Peak activity at t=5.13s, when 11.1% of the frame moved; the fastest pixels then moved 3.1 px/frame (~94 px/s at analysis resolution).",
+    "Static periods: 47% of frames are essentially still (no object, <0.5% of pixels moving), e.g. around t=23.0s.",
+    "Camera ego-motion: essentially static (median global shift 0.03 px/frame) - so the flow that does appear comes from objects moving in the scene, not the camera.",
+    "What moved: independent moving regions (motion left after removing camera motion) were present in 53% of frames, up to 3 at once; 8 object track(s) persisted for at least 0.5s.",
+    "Object 1: visible t=1.63-6.57s, moving up at ~1.54 px/frame (46.2 px/s), centroid travelled 230.4 px.",
+    "Object 5: visible t=6.83-9.67s, moving up at ~2.23 px/frame (66.8 px/s), centroid travelled 121.2 px.",
+    "Object 6: visible t=11.9-14.67s, moving up at ~2.34 px/frame (70.1 px/s), centroid travelled 132.3 px.",
+    "Direction: the dominant flow direction over moving frames was up-left (242 deg in image coords, 0 = right, 90 = down).",
+    "Reliability: 29% of pixels have almost no texture (|gradient| < 2 grey levels/px). There brightness constancy gives no constraint (aperture problem), so flow in those areas is filled in by smoothing rather than measured."
+  ],
+  "keyframes": [
+    {
+      "name": "start",
+      "file": "keyframe_start.png",
+      "t_sec": 0.03
+    },
+    {
+      "name": "middle",
+      "file": "keyframe_middle.png",
+      "t_sec": 15.0
+    },
+    {
+      "name": "peak motion",
+      "file": "keyframe_peak_motion.png",
+      "t_sec": 5.13
+    },
+    {
+      "name": "most objects",
+      "file": "keyframe_most_objects.png",
+      "t_sec": 5.8
+    }
+  ],
+  "objects": [
+    {
+      "id": 1,
+      "first_t": 1.63,
+      "last_t": 6.57,
+      "duration_s": 4.93,
+      "n_frames": 149,
+      "mean_speed_px_per_frame": 1.54,
+      "mean_speed_px_per_s": 46.2,
+      "direction_deg": 249.5,
+      "direction": "up",
+      "path_px": 230.4,
+      "max_area_px": 8598
+    },
+    {
+      "id": 5,
+      "first_t": 6.83,
+      "last_t": 9.67,
+      "duration_s": 2.83,
+      "n_frames": 86,
+      "mean_speed_px_per_frame": 2.23,
+      "mean_speed_px_per_s": 66.8,
+      "direction_deg": 252.1,
+      "direction": "up",
+      "path_px": 121.2,
+      "max_area_px": 6706
+    },
+    {
+      "id": 6,
+      "first_t": 11.9,
+      "last_t": 14.67,
+      "duration_s": 2.77,
+      "n_frames": 84,
+      "mean_speed_px_per_frame": 2.34,
+      "mean_speed_px_per_s": 70.1,
+      "direction_deg": 251.1,
+      "direction": "up",
+      "path_px": 132.3,
+      "max_area_px": 7218
+    },
+    {
+      "id": 7,
+      "first_t": 15.47,
+      "last_t": 18.2,
+      "duration_s": 2.73,
+      "n_frames": 83,
+      "mean_speed_px_per_frame": 2.29,
+      "mean_speed_px_per_s": 68.6,
+      "direction_deg": 251.5,
+      "direction": "up",
+      "path_px": 125.3,
+      "max_area_px": 6635
+    },
+    {
+      "id": 8,
+      "first_t": 18.0,
+      "last_t": 20.53,
+      "duration_s": 2.53,
+      "n_frames": 77,
+      "mean_speed_px_per_frame": 2.08,
+      "mean_speed_px_per_s": 62.4,
+      "direction_deg": 253.7,
+      "direction": "up",
+      "path_px": 106.8,
+      "max_area_px": 5975
+    },
+    {
+      "id": 3,
+      "first_t": 4.17,
+      "last_t": 6.47,
+      "duration_s": 2.3,
+      "n_frames": 70,
+      "mean_speed_px_per_frame": 2.7,
+      "mean_speed_px_per_s": 80.9,
+      "direction_deg": 118.4,
+      "direction": "down-left",
+      "path_px": 144.4,
+      "max_area_px": 5429
+    },
+    {
+      "id": 4,
+      "first_t": 5.8,
+      "last_t": 7.67,
+      "duration_s": 1.87,
+      "n_frames": 57,
+      "mean_speed_px_per_frame": 2.54,
+      "mean_speed_px_per_s": 76.3,
+      "direction_deg": 113.8,
+      "direction": "down-left",
+      "path_px": 139.8,
+      "max_area_px": 2933
+    },
+    {
+      "id": 2,
+      "first_t": 2.77,
+      "last_t": 3.33,
+      "duration_s": 0.57,
+      "n_frames": 18,
+      "mean_speed_px_per_frame": 2.13,
+      "mean_speed_px_per_s": 63.9,
+      "direction_deg": 243.5,
+      "direction": "up-left",
+      "path_px": 30.6,
+      "max_area_px": 913
+    }
+  ],
+  "has_pair": true,
+  "pair_frames": [
+    153,
+    154
+  ],
+  "pair_t_sec": 5.1,
+  "processing_sec": 117.5
+}
