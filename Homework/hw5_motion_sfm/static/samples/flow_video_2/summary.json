@@ -1,0 +1,228 @@
+{
+  "label": "Video 2",
+  "video_name": "v2_1791237647323_IMG_2118.MOV",
+  "src_fps": 30.003753597197313,
+  "out_fps": 30.003753597197313,
+  "stride": 1,
+  "src_size": [
+    2160,
+    3840
+  ],
+  "analysis_size": [
+    224,
+    400
+  ],
+  "clip_duration_sec": 39.96,
+  "start_sec": 0.0,
+  "processed_sec": 29.96,
+  "n_pairs": 899,
+  "overall": {
+    "peak_mean_mag": 1.4161500930786133,
+    "avg_mean_mag": 0.45212272253794983,
+    "peak_t": 26.530013900472618,
+    "peak_moving_frac": 95.84933035714286,
+    "avg_moving_frac": 8.033439933259176,
+    "max_objects": 5,
+    "frames_with_objects_pct": 75.75083426028921,
+    "median_cam_shift": 0.33369675768266965,
+    "out_fps": 30.003753597197313
+  },
+  "inferences": [
+    "When: something was moving (>0.5% of pixels moving more than 1 px/frame, or a moving object detected) in 77% of the 30.0s analysed. Peak activity at t=26.53s, when 95.8% of the frame moved; the fastest pixels then moved 2.0 px/frame (~60 px/s at analysis resolution).",
+    "Static periods: 23% of frames are essentially still (no object, <0.5% of pixels moving), e.g. around t=12.6s.",
+    "Camera ego-motion: the whole image shifted in 31% of frames (median shift (-0.04, -0.51) px/frame, image content moving up) - i.e. the camera itself was panning/moving down. This is global, smooth flow over the whole frame, unlike an object's localized flow.",
+    "What moved: independent moving regions (motion left after removing camera motion) were present in 76% of frames, up to 5 at once; 13 object track(s) persisted for at least 0.5s.",
+    "Object 17: visible t=15.96-26.7s, moving right at ~1.92 px/frame (57.7 px/s), centroid travelled 1098.2 px.",
+    "Object 1: visible t=0.03-8.73s, moving right at ~2.02 px/frame (60.7 px/s), centroid travelled 912.2 px.",
+    "Object 30: visible t=26.73-29.96s, moving down-left at ~2.09 px/frame (62.7 px/s), centroid travelled 576.2 px.",
+    "Direction: the dominant flow direction over moving frames was right (3 deg in image coords, 0 = right, 90 = down).",
+    "Reliability: 5% of pixels have almost no texture (|gradient| < 2 grey levels/px). There brightness constancy gives no constraint (aperture problem), so flow in those areas is filled in by smoothing rather than measured."
+  ],
+  "keyframes": [
+    {
+      "name": "start",
+      "file": "keyframe_start.png",
+      "t_sec": 0.03
+    },
+    {
+      "name": "middle",
+      "file": "keyframe_middle.png",
+      "t_sec": 15.0
+    },
+    {
+      "name": "peak motion",
+      "file": "keyframe_peak_motion.png",
+      "t_sec": 26.53
+    },
+    {
+      "name": "most objects",
+      "file": "keyframe_most_objects.png",
+      "t_sec": 23.83
+    }
+  ],
+  "objects": [
+    {
+      "id": 17,
+      "first_t": 15.96,
+      "last_t": 26.7,
+      "duration_s": 10.73,
+      "n_frames": 307,
+      "mean_speed_px_per_frame": 1.92,
+      "mean_speed_px_per_s": 57.7,
+      "direction_deg": 345.7,
+      "direction": "right",
+      "path_px": 1098.2,
+      "max_area_px": 17472
+    },
+    {
+      "id": 1,
+      "first_t": 0.03,
+      "last_t": 8.73,
+      "duration_s": 8.7,
+      "n_frames": 262,
+      "mean_speed_px_per_frame": 2.02,
+      "mean_speed_px_per_s": 60.7,
+      "direction_deg": 14.7,
+      "direction": "right",
+      "path_px": 912.2,
+      "max_area_px": 13624
+    },
+    {
+      "id": 30,
+      "first_t": 26.73,
+      "last_t": 29.96,
+      "duration_s": 3.23,
+      "n_frames": 94,
+      "mean_speed_px_per_frame": 2.09,
+      "mean_speed_px_per_s": 62.7,
+      "direction_deg": 148.9,
+      "direction": "down-left",
+      "path_px": 576.2,
+      "max_area_px": 12283
+    },
+    {
+      "id": 24,
+      "first_t": 23.8,
+      "last_t": 26.36,
+      "duration_s": 2.57,
+      "n_frames": 67,
+      "mean_speed_px_per_frame": 1.34,
+      "mean_speed_px_per_s": 40.2,
+      "direction_deg": 98.2,
+      "direction": "down",
+      "path_px": 424.1,
+      "max_area_px": 5036
+    },
+    {
+      "id": 19,
+      "first_t": 19.86,
+      "last_t": 22.3,
+      "duration_s": 2.43,
+      "n_frames": 59,
+      "mean_speed_px_per_frame": 1.14,
+      "mean_speed_px_per_s": 34.1,
+      "direction_deg": 351.1,
+      "direction": "right",
+      "path_px": 196.1,
+      "max_area_px": 2809
+    },
+    {
+      "id": 22,
+      "first_t": 22.83,
+      "last_t": 24.23,
+      "duration_s": 1.4,
+      "n_frames": 41,
+      "mean_speed_px_per_frame": 1.11,
+      "mean_speed_px_per_s": 33.3,
+      "direction_deg": 351.0,
+      "direction": "right",
+      "path_px": 221.6,
+      "max_area_px": 2164
+    },
+    {
+      "id": 23,
+      "first_t": 23.6,
+      "last_t": 25.0,
+      "duration_s": 1.4,
+      "n_frames": 41,
+      "mean_speed_px_per_frame": 1.18,
+      "mean_speed_px_per_s": 35.5,
+      "direction_deg": 355.7,
+      "direction": "right",
+      "path_px": 185.6,
+      "max_area_px": 3304
+    },
+    {
+      "id": 38,
+      "first_t": 28.7,
+      "last_t": 29.96,
+      "duration_s": 1.27,
+      "n_frames": 30,
+      "mean_speed_px_per_frame": 1.31,
+      "mean_speed_px_per_s": 39.2,
+      "direction_deg": 169.1,
+      "direction": "left",
+      "path_px": 199.2,
+      "max_area_px": 7296
+    },
+    {
+      "id": 25,
+      "first_t": 23.8,
+      "last_t": 24.96,
+      "duration_s": 1.17,
+      "n_frames": 27,
+      "mean_speed_px_per_frame": 1.13,
+      "mean_speed_px_per_s": 33.8,
+      "direction_deg": 357.9,
+      "direction": "right",
+      "path_px": 103.7,
+      "max_area_px": 1122
+    },
+    {
+      "id": 37,
+      "first_t": 28.3,
+      "last_t": 29.4,
+      "duration_s": 1.1,
+      "n_frames": 23,
+      "mean_speed_px_per_frame": 1.34,
+      "mean_speed_px_per_s": 40.3,
+      "direction_deg": 175.3,
+      "direction": "left",
+      "path_px": 131.1,
+      "max_area_px": 2928
+    },
+    {
+      "id": 5,
+      "first_t": 1.23,
+      "last_t": 2.03,
+      "duration_s": 0.8,
+      "n_frames": 20,
+      "mean_speed_px_per_frame": 1.51,
+      "mean_speed_px_per_s": 45.2,
+      "direction_deg": 323.2,
+      "direction": "up-right",
+      "path_px": 88.3,
+      "max_area_px": 1653
+    },
+    {
+      "id": 2,
+      "first_t": 0.23,
+      "last_t": 0.8,
+      "duration_s": 0.57,
+      "n_frames": 18,
+      "mean_speed_px_per_frame": 1.65,
+      "mean_speed_px_per_s": 49.5,
+      "direction_deg": 347.5,
+      "direction": "right",
+      "path_px": 61.1,
+      "max_area_px": 1606
+    }
+  ],
+  "has_pair": true,
+  "pair_frames": [
+    876,
+    877
+  ],
+  "pair_t_sec": 29.196,
+  "processing_sec": 237.3
+}
