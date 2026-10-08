@@ -2,6 +2,11 @@
 
 Hosted on: https://computervision-homeworks.onrender.com/
 
+## Challenge 1 — Context-Aware Hierarchical Robot Control
+
+Notebook: [`Challenge1/challenge1_prototype.ipynb`](Challenge1/challenge1_prototype.ipynb) (run in Colab on a GPU).
+A quick feasibility test showing that a frozen Video-LLM (Qwen2.5-VL) can understand an unseen home from a short video and pass the robot structured context: Perception ➔ Reasoning ➔ Environment Grounding ➔ Robot Action. It compares the robot with and without that context across different homes and lighting.
+
 ## Run
 
 ```bash
