@@ -30,6 +30,27 @@ FILE_TAG = "sample://"
 ZIP_TAG = "sample-zip://"
 SKIP_FILES = {"live.jpg", "status.json"}
 
+# Module pages that get the Run / Sample Output tabs:
+# page endpoint -> (its GET page, that page's Sample Output sub-tab, first tab's label).
+# POST-only endpoints that render a page point back at the GET page.
+MODULE_PAGES = {
+    "hw2.calibrate_view": ("hw2.calibrate_view", "calibration", "Run"),
+    "hw2.measure_view": ("hw2.measure_view", "measurement", "Run"),
+    "hw2.validate_view": ("hw2.validate_view", "validation", "Run"),
+    "hw3.blur_view": ("hw3.blur_view", None, "Run"),
+    "hw4.home": ("hw4.home", None, "Run"),
+    "hw4.process_rgb": ("hw4.home", None, "Run"),
+    "hw4.process_thermal": ("hw4.home", None, "Run"),
+    "hw5.home": ("hw5.home", None, "Overview"),
+    "hw5.flow_view": ("hw5.flow_view", "flow", "Run"),
+    "hw5.tracking_view": ("hw5.tracking_view", "tracking", "Run"),
+    "hw5.sfm_view": ("hw5.sfm_view", "sfm", "Run"),
+    "hw5.sfm_upload": ("hw5.sfm_view", "sfm", "Run"),
+    "hw7.home": ("hw7.home", None, "Overview"),
+    "hw7.stereo_view": ("hw7.stereo_view", "stereo", "Run"),
+    "hw7.room_view": ("hw7.room_view", "room", "Run"),
+}
+
 samples_bp = Blueprint("samples", __name__, url_prefix="/samples")
 
 
@@ -135,6 +156,38 @@ def list_keys(bp, prefix=""):
         return []
     return sorted(k for k in os.listdir(root)
                   if k.startswith(prefix) and os.path.exists(os.path.join(root, k, "sample.json")))
+
+
+def tab(title, endpoint, parts, active, run_url, run_label):
+    """What a Sample Output page's header needs. parts is [(key, label)]."""
+    return {"title": title, "run_url": run_url, "run_label": run_label,
+            "parts": [{"label": label, "url": url_for(endpoint, part=key), "active": key == active}
+                      for key, label in parts]}
+
+
+def chosen_part(parts):
+    """The ?part= sub-tab asked for, or the first one."""
+    asked = request.args.get("part")
+    return asked if asked in dict(parts) else parts[0][0]
+
+
+def module_tabs(sample_tab=None):
+    """The Run / Sample Output tabs for the page being shown, or None off a
+    module page. sample_tab is set when a Sample Output page is rendering."""
+    if sample_tab:
+        return {"run_url": sample_tab["run_url"], "run_label": "Run",
+                "sample_url": request.full_path, "on_sample": True}
+    page = MODULE_PAGES.get(request.endpoint)
+    if page is None:
+        return None
+    run_endpoint, part, label = page
+    return {"run_url": url_for(run_endpoint), "run_label": label, "on_sample": False,
+            "sample_url": url_for(run_endpoint.split(".")[0] + ".sample_output", part=part)}
+
+
+@samples_bp.app_context_processor
+def inject_module_tabs():
+    return {"module_tabs": module_tabs}
 
 
 def _back():

@@ -20,15 +20,16 @@ Open `http://127.0.0.1:8000`.
 
 ## Offline samples (view results without uploading)
 
-Every module can show a saved run to visitors, so nobody has to upload photos or videos to see real results.
+Every homework has a **Sample Output** entry in its nav menu, and every module page has a **Run / Sample Output** tab bar at the top, that shows a finished run with nothing to upload, while the
+homework's own pages stay as clean forms for running new experiments.
 
 1. Run the app locally (`python main.py`) and run a module with your own photos/videos.
 2. Under the result, click **Save this run as the offline sample**. It copies the run's output files and
    numbers into `Homework/<hw>/static/samples/<name>/` (this replaces any earlier sample of that module).
-3. Commit the `samples/` folders and deploy. Each page now opens on its sample, with a **Download sample (ZIP)**
-   link, until a visitor uploads their own input.
+3. Commit the `samples/` folders and deploy. The Sample Output tab now shows that run, with a
+   **Download sample (ZIP)** link. Until a run is saved, it shows the repo's example output where there is one.
 
-| Page | Sample(s) |
+| Run page | Sample(s), shown at `/<hw>/sample-output` |
 |---|---|
 | `/hw2/calibrate`, `/hw2/measure`, `/hw2/validate` | `calibration`, `measurement`, `validation` |
 | `/hw3/` | `blur` (both kernels) |
@@ -36,11 +37,19 @@ Every module can show a saved run to visitors, so nobody has to upload photos or
 | `/hw5/flow` | `flow_video_1`, `flow_video_2` |
 | `/hw5/tracking` | `track_video_1`, `track_video_2` (one per video's frame pair) |
 | `/hw5/sfm` | `sfm` |
+| `/hw7/stereo` | `stereo` |
+| `/hw7/room` | `room` |
 
 Saving and deleting only work when running with `python main.py` (or with `ALLOW_SAMPLE_SAVE=1`), so visitors
 to the hosted site can't overwrite your samples; there, samples are view/download only. The hosted server's disk
 is reset on every deploy, so samples must be committed to show up there. The HW5 flow samples include the
 processed video (~20 MB for 30 s), so all HW5 samples together add roughly 60-80 MB to the repo.
+
+## Challenge 1
+
+`/challenge1/` shows the saved results of `Challenge1/challenge1_prototype.ipynb`: the summary, per-run table, figure,
+and each home's scene context, plan and actions. The page reads them from the notebook's outputs. The notebook itself
+ran on a Colab GPU, so nothing runs on the site, and it needs to be deployed alongside the app.
 
 ## HW2
 
@@ -51,6 +60,10 @@ points), `/hw2/validate` (upload a CSV of actual vs. measured lengths). Each of 
 **offline example output** below its form/upload button — corner detection on one of the repo's own chessboard
 photos, a measured example on a real object photo, and the two error plots generated from the repo's own
 `result.csv` — so the result is visible before you upload anything.
+
+The latest calibration is saved in `static/calib/camera_calib.npz` and shown under **Saved camera intrinsics** on
+`/hw2/calibrate` until the next run replaces it. HW7 reads the same file. Commit it after recalibrating so the hosted
+site has the new values.
 
 ## HW3
 
@@ -92,6 +105,25 @@ whole workflow and maps every assignment requirement to where it is answered.
 Every module has a **Download all outputs (ZIP)** button (`/hw5/download/<run>.zip`) to keep its sample output.
 Once you save offline samples (see above), each page shows them without any upload.
 
+## HW7
+
+Real-world measurement from stereo geometry and from video. Part 2 is a handwritten derivation, so it has no page.
+`/hw7/` is the overview.
+
+**Working demo:**
+- `/hw7/stereo`: upload a left and right photo with the baseline and a calibration (HW2, EXIF or typed in). The app
+  estimates the relative pose, rectifies, and shows the disparity and depth maps. Click object points on the rectified
+  left image to measure a rectangle (width, height), circle (diameter) or polygon (every edge) from their 3D positions.
+- `/hw7/room`: upload one room video. The app extracts key frames and runs incremental structure from motion.
+  The room's corners and its floor and ceiling lines are found automatically, and the focal length is corrected from
+  the room's right angles. Width is reported as a lower limit unless both ends of the front wall appear. Corners can
+  also be marked by hand on two or more frames, and the scale can come from the camera's travel, the camera-to-wall distance or
+  a known length. It reports length, width and height, with the unused references as independent checks. If the video
+  shows no back wall, length is the camera-to-front-wall distance, which assumes the camera was at the back wall.
+
+The form defaults are this homework's capture measurements: 297 mm baseline and 1188 mm object distance for stereo,
+1260 mm left-right travel and 2673 mm camera-to-wall distance for video. Change them for other captures.
+
 ## Layout
 
 Each homework is under `Homework/hwN_*/` — its backend code, its own `templates/` and `static/`
@@ -113,4 +145,6 @@ Homework/
                          templates/hw4/, static/{rgb_uploads,thermal_uploads,sam2_uploads,outputs,demo}/
   hw5_motion_sfm/        routes.py, optical_flow.py, tracking.py, bilinear.py, sfm_planar.py, reports.py
                          templates/hw5/, static/{video_uploads,sfm_uploads,outputs/<run_id>/}
+  hw_7/                  routes.py, stereo_measure.py, room_video.py, room_auto.py
+                         templates/hw7/, static/{stereo_uploads,room_uploads,outputs/<run_id>/}, static/picker.js
 ```

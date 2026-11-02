@@ -68,16 +68,8 @@ def _run_pipeline(image, seg, section, stamp, sam2_file):
 
 
 def _render(rgb_result=None, thermal_result=None, rgb_offer=None, thermal_offer=None):
-    """Live results where we have them; otherwise each section shows its
-    saved offline sample (if any)."""
-    rgb_sample = None if rgb_result else samples.load("hw4", "rgb")
-    thermal_sample = None if thermal_result else samples.load("hw4", "thermal")
-    return render_template(
-        "hw4/boundary_extraction.html",
-        rgb_result=rgb_result or rgb_sample, thermal_result=thermal_result or thermal_sample,
-        rgb_sample_info=rgb_sample and rgb_sample["_sample"],
-        thermal_sample_info=thermal_sample and thermal_sample["_sample"],
-        rgb_offer=rgb_offer, thermal_offer=thermal_offer)
+    return render_template("hw4/boundary_extraction.html", rgb_result=rgb_result, thermal_result=thermal_result,
+                           rgb_offer=rgb_offer, thermal_offer=thermal_offer)
 
 
 @hw4.route("/", methods=["GET"])
@@ -131,3 +123,13 @@ def process_thermal():
 
     thermal_result = {**urls, "comparison": comparison}
     return _render(thermal_result=thermal_result, thermal_offer=samples.offer("hw4", "thermal", thermal_result))
+
+
+@hw4.route("/sample-output")
+def sample_output():
+    rgb = samples.load("hw4", "rgb")
+    thermal = samples.load("hw4", "thermal")
+    return render_template("hw4/boundary_extraction.html", rgb_result=rgb, thermal_result=thermal,
+                           rgb_sample_info=rgb and rgb["_sample"], thermal_sample_info=thermal and thermal["_sample"],
+                           sample_tab=samples.tab("HW4", "hw4.sample_output", [("all", "All")], "all",
+                                                  url_for("hw4.home"), "the boundary extraction page"))

@@ -1,6 +1,7 @@
 {% extends "shell.html" %}
 {% import "_samples.html" as smp with context %}
 {% block content %}
+{% if sample_tab %}{{ smp.tab_header(sample_tab) }}{% else %}
 <div class="card">
   <h1>Step 1 - Camera Calibration</h1>
   <p>Upload the chessboard photos you took with your phone.</p>
@@ -21,6 +22,31 @@
   </form>
 </div>
 
+{% endif %}
+
+{% if saved %}
+<div class="card" id="saved">
+  <h2>Saved camera intrinsics</h2>
+  <p class="muted">The current calibration, kept until the next run replaces it. HW2 measurement and
+    <a href="{{ url_for('hw7.stereo_view') }}">HW7</a> use these values.</p>
+  <table class="result-table" style="max-width:380px;">
+    <caption class="muted" style="text-align:left; margin-bottom:4px;">Camera matrix K</caption>
+    <tbody>
+      {% for row in saved.matrix %}<tr>{% for v in row %}<td style="text-align:right">{{ "%.2f"|format(v) }}</td>{% endfor %}</tr>{% endfor %}
+    </tbody>
+  </table>
+  <div class="stat-grid">
+    <div class="stat-box"><div class="label">fx</div><div class="value">{{ "%.2f"|format(saved.fx) }}</div></div>
+    <div class="stat-box"><div class="label">fy</div><div class="value">{{ "%.2f"|format(saved.fy) }}</div></div>
+    <div class="stat-box"><div class="label">cx</div><div class="value">{{ "%.2f"|format(saved.cx) }}</div></div>
+    <div class="stat-box"><div class="label">cy</div><div class="value">{{ "%.2f"|format(saved.cy) }}</div></div>
+    <div class="stat-box"><div class="label">Image size</div><div class="value">{{ saved.image_size[0] }}&times;{{ saved.image_size[1] }}</div></div>
+    <div class="stat-box"><div class="label">Mean reprojection error</div><div class="value">{{ "%.4f"|format(saved.mean_error) }} px</div></div>
+  </div>
+  <p style="margin-top:16px;"><strong>Distortion coefficients</strong> (k1, k2, p1, p2, k3): <code>{{ saved.dist_coeffs }}</code></p>
+</div>
+{% endif %}
+
 {% if result %}
 <div class="card">
   {{ smp.banner(sample_info) }}
@@ -40,12 +66,13 @@
   <p class="muted" style="margin-top:14px;">Detected corners on one of the photos:</p>
   <img src="{{ result.corners_url }}" style="max-width:100%; border-radius:8px; border:1px solid var(--border);">
   {% endif %}
-  {% if not sample_info %}<p class="muted">Saved to static/calib/camera_calib.npz</p>{% endif %}
+  {% if not sample_info %}<p class="muted">Saved to static/calib/camera_calib.npz. These values now appear on
+    <a href="{{ url_for('hw2.calibrate_view') }}">this page</a> and in <a href="{{ url_for('hw7.stereo_view') }}">HW7</a>.</p>{% endif %}
   {{ smp.save_button(sample_offer) }}
 </div>
 {% endif %}
 
-{% if not sample_info %}
+{% if sample_tab and not sample_info %}
 <div class="card">
   <h2>Offline example output</h2>
   <p class="muted">Corner detection run on one of the repo's own calibration photos (10&times;7 inner corners), shown here so you can see what a

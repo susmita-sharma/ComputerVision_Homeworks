@@ -1,6 +1,7 @@
 {# Offline-sample UI shared by every homework page:
    save_button(offer)  - under a live result, when saving is enabled (local runs)
-   banner(info)        - on top of a saved sample being shown #}
+   banner(info)        - on top of a saved sample being shown
+   tab_header(tab)     - top of a Sample Output page, with its sub-tabs #}
 
 {% macro save_button(offer, label="Save this run as the offline sample") %}
 {% if offer %}
@@ -30,4 +31,17 @@
   {% endif %}
 </div>
 {% endif %}
+{% endmacro %}
+
+{% macro tab_header(tab) %}
+<div class="card">
+  <h1>{{ tab.title }} &middot; Sample Output</h1>
+  <p class="muted">Outputs of a finished run, ready to view with nothing to upload. To try your own input, use
+    <a href="{{ tab.run_url }}">{{ tab.run_label }}</a>.</p>
+  {% if tab.parts|length > 1 %}
+  <div class="sample-tabs">
+    {% for p in tab.parts %}<a href="{{ p.url }}" {% if p.active %}class="active"{% endif %}>{{ p.label }}</a>{% endfor %}
+  </div>
+  {% endif %}
+</div>
 {% endmacro %}

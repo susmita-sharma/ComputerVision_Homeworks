@@ -6,6 +6,8 @@ camera_calib.npz
 
 # HW2 - runtime uploads/output (demo assets under static/demo/ stay tracked)
 Homework/hw2_calibration/static/calib/*.npz
+# the saved intrinsics stay tracked so the hosted site has them too (HW2 page, HW7)
+!Homework/hw2_calibration/static/calib/camera_calib.npz
 Homework/hw2_calibration/static/calib_uploads/*
 !Homework/hw2_calibration/static/calib_uploads/.gitkeep
 Homework/hw2_calibration/static/object_uploads/*
@@ -36,6 +38,14 @@ Homework/hw5_motion_sfm/static/sfm_uploads/*
 !Homework/hw5_motion_sfm/static/sfm_uploads/.gitkeep
 Homework/hw5_motion_sfm/static/outputs/*
 !Homework/hw5_motion_sfm/static/outputs/.gitkeep
+
+# HW7 - runtime uploads/output
+Homework/hw_7/static/stereo_uploads/*
+!Homework/hw_7/static/stereo_uploads/.gitkeep
+Homework/hw_7/static/room_uploads/*
+!Homework/hw_7/static/room_uploads/.gitkeep
+Homework/hw_7/static/outputs/*
+!Homework/hw_7/static/outputs/.gitkeep
 
 # pending (not yet saved) offline samples - the saved ones under */static/samples/ ARE committed
 Homework/_pending_samples/

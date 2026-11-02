@@ -1,6 +1,7 @@
 {% extends "shell.html" %}
 {% import "_samples.html" as smp with context %}
 {% block content %}
+{% if sample_tab %}{{ smp.tab_header(sample_tab) }}{% else %}
 <div class="card">
   <h1>HW5 Step 2 &middot; Motion Tracking, Bilinear Interpolation &amp; Validation</h1>
   <p class="muted">Derives the two-frame point-tracking problem from first principles, then runs a from-scratch
@@ -81,18 +82,27 @@
     by the predicted \(\mathbf d\) compared with not moving it.</p>
 </div>
 
-{% if sample_list %}
+{% endif %}
+
+{% if sample_tab and sample_list %}
 <div class="card">
-  <h2>Offline samples</h2>
+  <h2>Saved validation runs</h2>
   <p>Saved validation runs you can open without uploading anything:
     {% for s in sample_list %}<a href="{{ s.url }}"><button type="button" style="margin:6px 6px 0 0; padding:6px 12px; font-size:13px;">{{ s.label }}</button></a>{% endfor %}
   </p>
-  <p class="muted">Want to run it yourself? <a href="{{ url_for('hw5.tracking_view', upload=1) }}">Upload your own frame pair</a>
-    or start from the <a href="{{ url_for('hw5.flow_view') }}">Optical Flow page</a>.</p>
 </div>
 {% endif %}
 
-{% if saved_runs %}
+{% if sample_tab and not result %}
+<div class="card">
+  <h2>No sample saved yet</h2>
+  <p>Tracking validation needs point locations measured by hand on a frame pair, so a sample only exists once one has
+    been run. Run it on the <a href="{{ url_for('hw5.tracking_view') }}">Tracking page</a>, then press
+    <em>Save as the offline sample</em> under the result.</p>
+</div>
+{% endif %}
+
+{% if saved_runs and not sample_tab %}
 <div class="card">
   <h2>Saved tracking results (this session)</h2>
   <ul>
@@ -105,7 +115,8 @@
 </div>
 {% endif %}
 
-{% if not prev_url or not next_url %}
+{% if sample_tab %}
+{% elif not prev_url or not next_url %}
 <div class="card">
   <h2>Choose two consecutive frames</h2>
   <p>Best: run the <a href="{{ url_for('hw5.flow_view') }}">Optical Flow</a> step first and click

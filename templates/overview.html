@@ -1,56 +1,29 @@
 {% extends "shell.html" %}
 {% block content %}
+<style>
+  .hub-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .hub-tile { display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 20px 22px; color: inherit; text-decoration: none;
+    transition: border-color .15s, transform .15s; }
+  .hub-tile:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .hub-tile .tag { font-size: 12px; font-weight: 700; color: var(--accent); letter-spacing: 0.04em; text-transform: uppercase; }
+  .hub-tile h2 { margin: 6px 0 8px; font-size: 18px; }
+  .hub-tile p { margin: 0 0 14px; font-size: 14px; color: #5b6672; line-height: 1.45; flex-grow: 1; }
+  .hub-tile .open { font-size: 14px; font-weight: 600; color: var(--accent); }
+</style>
 <div class="card">
   <h1>CSc 8830 Computer Vision</h1>
-  <p></p>
+  <p class="muted">Choose a homework or challenge to open it.</p>
 </div>
 
-<div class="card">
-  <h2>HW2 &middot; Camera Calibration &amp; Measurement</h2>
-  <p class="muted">Chessboard calibration, then pixel distance &rarr; real-world length, then accuracy check.</p>
-  <ol>
-    <li><a href="{{ url_for('hw2.calibrate_view') }}">Calibration</a></li>
-    <li><a href="{{ url_for('hw2.measure_view') }}">Measurement</a></li>
-    <li><a href="{{ url_for('hw2.validate_view') }}">Validation</a></li>
-  </ol>
-  {% if calib %}
-    <div class="stat-grid">
-      <div class="stat-box"><div class="label">Image size</div><div class="value">{{ calib.image_size[0] }} x {{ calib.image_size[1] }}</div></div>
-      <div class="stat-box"><div class="label">fx (px)</div><div class="value">{{ "%.1f"|format(calib.camera_matrix[0][0]) }}</div></div>
-      <div class="stat-box"><div class="label">fy (px)</div><div class="value">{{ "%.1f"|format(calib.camera_matrix[1][1]) }}</div></div>
-      <div class="stat-box"><div class="label">Reprojection error</div><div class="value">{{ "%.3f"|format(calib.reprojection_error) }} px</div></div>
-    </div>
-  {% else %}
-    <p class="muted">No calibration on file yet - <a href="{{ url_for('hw2.calibrate_view') }}">start here</a>.</p>
-  {% endif %}
-</div>
-
-<div class="card">
-  <h2>HW3 &middot; Blur: Spatial vs. Frequency</h2>
-  <p class="muted">Blurs an image two independent ways - convolution and FFT multiplication - and checks the
-    outputs match, as evidence for the convolution theorem.</p>
-  <p><a href="{{ url_for('hw3.blur_view') }}">Open HW3 &rarr;</a></p>
-</div>
-
-<div class="card">
-  <h2>HW4 &middot; Human Boundary Extraction (RGB + Thermal)</h2>
-  <p class="muted">Pulls a human's outline out of an RGB photo and a thermal photo using classic OpenCV only
-    (no ML/DL), then compares against a SAM2 mask you supply.</p>
-  <p><a href="{{ url_for('hw4.home') }}">Open HW4 &rarr;</a></p>
-</div>
-
-<div class="card">
-  <h2>HW5 &middot; Optical Flow, Motion Tracking &amp; Structure from Motion</h2>
-  <p class="muted">Dense optical flow on real video with a color-coded flow visualization, the Lucas-Kanade
-    tracking equations derived from brightness constancy and validated pixel-by-pixel against OpenCV, a
-    from-scratch bilinear interpolation implementation, and a 4-viewpoint structure-from-motion
-    reconstruction of a planar object's boundary.</p>
-  <ol>
-    <li><a href="{{ url_for('hw5.flow_view') }}">Optical Flow</a> - upload a &ge;30s video clip with motion</li>
-    <li><a href="{{ url_for('hw5.tracking_view') }}">Tracking &amp; Bilinear Interpolation</a> - derivation +
-      validate on a real frame pair</li>
-    <li><a href="{{ url_for('hw5.sfm_view') }}">Structure from Motion</a> - 4 photos of a flat object &rarr;
-      reconstructed boundary + camera poses</li>
-  </ol>
+<div class="hub-grid">
+  {% for t in tiles %}
+  <a class="hub-tile" href="{{ t.url }}">
+    <span class="tag">{{ t.tag }}</span>
+    <h2>{{ t.title }}</h2>
+    <p>{{ t.text }}</p>
+    <span class="open">Open &rarr;</span>
+  </a>
+  {% endfor %}
 </div>
 {% endblock %}

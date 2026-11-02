@@ -1,0 +1,24 @@
+{% extends "shell.html" %}
+{% block content %}
+<div class="card">
+  <h1>HW7 &middot; Stereo Measurement &amp; Room Dimensions</h1>
+  <p class="muted">Real-world sizes from calibrated stereo geometry and from video reconstruction.</p>
+</div>
+
+<div class="card">
+  <h2>Part 1 &middot; <a href="{{ url_for('hw7.stereo_view') }}">Calibrated stereo object measurement</a></h2>
+  <p>Upload a left and a right photo with the calibration and baseline. The app rectifies the pair, computes disparity
+    and depth, and turns the points you select into 3D coordinates. It measures rectangles, circles and polygons.</p>
+</div>
+
+<div class="card">
+  <h2>Part 2 &middot; Uncalibrated stereo</h2>
+  <p class="muted">Handwritten derivation, submitted separately.</p>
+</div>
+
+<div class="card">
+  <h2>Part 3 &middot; <a href="{{ url_for('hw7.room_view') }}">Room dimensions from video</a></h2>
+  <p>Upload one video that moves sideways along the room. The app extracts key frames, recovers the camera path and a
+    sparse 3D reconstruction, then finds the room's corners and its floor and ceiling lines on its own. A known measurement sets the real scale.</p>
+</div>
+{% endblock %}

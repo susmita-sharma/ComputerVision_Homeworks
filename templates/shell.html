@@ -115,10 +115,19 @@
     .comparison-grid figcaption { font-size: 12.5px; color: #5b6672; text-align: center; margin-top: 6px; }
     .section-divider { border: none; border-top: 1px solid var(--border); margin: 30px 0; }
     .badge-ok { color: #146c2e; font-weight: 700; }
+    .module-tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 2px solid var(--border); }
+    .module-tabs a { padding: 9px 18px; margin-bottom: -2px; border-bottom: 2px solid transparent; font-size: 15px;
+      font-weight: 600; color: #5b6672; text-decoration: none; }
+    .module-tabs a:hover { color: var(--accent); }
+    .module-tabs a.active { color: var(--accent); border-bottom-color: var(--accent); }
     .sample-banner { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; background: #ecfdf5;
       border: 1px solid #a7f3d0; color: #065f46; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 14px; }
     .sample-banner a { color: #047857; font-weight: 600; }
     .sample-banner .sample-del { margin: 0; padding: 4px 10px; font-size: 12px; background: #b91c1c; }
+    .sample-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .sample-tabs a { padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px;
+      color: var(--accent); text-decoration: none; background: #f8fafc; }
+    .sample-tabs a.active { background: var(--accent); border-color: var(--accent); color: #fff; }
     .sample-save { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--border); }
     .sample-save button { margin-top: 0; background: #047857; }
     .sample-save button:hover { background: #065f46; }
@@ -126,26 +135,50 @@
 </head>
 <body>
   <nav class="topnav">
-    <span class="brand">CSc 8830</span>
-    <a href="{{ url_for('overview') }}">Overview</a>
+    <a class="brand" href="{{ url_for('overview') }}">CSc 8830</a>
+    <a href="{{ url_for('overview') }}">Home</a>
     <div class="nav-group">
       <span class="nav-label">HW2</span>
       <div class="nav-dropdown">
         <a href="{{ url_for('hw2.calibrate_view') }}">1. Calibration</a>
         <a href="{{ url_for('hw2.measure_view') }}">2. Measurement</a>
         <a href="{{ url_for('hw2.validate_view') }}">3. Validation</a>
+        <a href="{{ url_for('hw2.sample_output') }}">Sample Output</a>
       </div>
     </div>
-    <a href="{{ url_for('hw3.blur_view') }}">HW3</a>
-    <a href="{{ url_for('hw4.home') }}">HW4</a>
+    <div class="nav-group">
+      <span class="nav-label">HW3</span>
+      <div class="nav-dropdown">
+        <a href="{{ url_for('hw3.blur_view') }}">Blur Experiment</a>
+        <a href="{{ url_for('hw3.sample_output') }}">Sample Output</a>
+      </div>
+    </div>
+    <div class="nav-group">
+      <span class="nav-label">HW4</span>
+      <div class="nav-dropdown">
+        <a href="{{ url_for('hw4.home') }}">Boundary Extraction</a>
+        <a href="{{ url_for('hw4.sample_output') }}">Sample Output</a>
+      </div>
+    </div>
     <div class="nav-group">
       <span class="nav-label">HW5</span>
       <div class="nav-dropdown">
         <a href="{{ url_for('hw5.flow_view') }}">1. Optical Flow</a>
         <a href="{{ url_for('hw5.tracking_view') }}">2. Tracking &amp; Bilinear Interp.</a>
         <a href="{{ url_for('hw5.sfm_view') }}">3. Structure from Motion</a>
+        <a href="{{ url_for('hw5.sample_output') }}">Sample Output</a>
       </div>
     </div>
+    <div class="nav-group">
+      <span class="nav-label">HW 7</span>
+      <div class="nav-dropdown">
+        <a href="{{ url_for('hw7.home') }}">Overview</a>
+        <a href="{{ url_for('hw7.stereo_view') }}">1. Stereo Measurement</a>
+        <a href="{{ url_for('hw7.room_view') }}">3. Room Dimensions</a>
+        <a href="{{ url_for('hw7.sample_output') }}">Sample Output</a>
+      </div>
+    </div>
+    <a href="{{ url_for('challenge1.home') }}">Challenge Samples</a>
   </nav>
   <div class="container">
     {% with messages = get_flashed_messages() %}
@@ -153,6 +186,13 @@
         {% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}
       {% endif %}
     {% endwith %}
+    {% set tabs = module_tabs(sample_tab) %}
+    {% if tabs %}
+    <div class="module-tabs">
+      <a href="{{ tabs.run_url }}" {% if not tabs.on_sample %}class="active"{% endif %}>{{ tabs.run_label }}</a>
+      <a href="{{ tabs.sample_url }}" {% if tabs.on_sample %}class="active"{% endif %}>Sample Output</a>
+    </div>
+    {% endif %}
     {% block content %}{% endblock %}
   </div>
 </body>

@@ -141,14 +141,11 @@ def flow_view():
     for s in SLOTS:
         key = f"flow_video_{s}"
         run = _flow_slot_view(s, runs.get(s))
-        offer = info = None
-        if run is None:
-            run = samples.load("hw5", key)   # nothing of yours in this slot -> the saved sample
-            info = run and run["_sample"]
-        elif run.get("summary"):
+        offer = None
+        if run and run.get("summary"):
             offer = samples.offer("hw5", key, {k: run[k] for k in ("slot", "status", "summary", "files", "pair",
                                                                      "zip_url") if k in run})
-        slots.append({"slot": s, "run": run, "sample_info": info, "sample_offer": offer})
+        slots.append({"slot": s, "run": run, "sample_offer": offer})
     return render_template("hw5/optical_flow.html", slots=slots)
 
 
@@ -273,32 +270,25 @@ def _tracking_samples():
         s = samples.load("hw5", key)
         if s:
             out.append({"key": key, "label": s.get("label", key),
-                        "url": url_for("hw5.tracking_view", sample=key)})
+                        "url": url_for("hw5.sample_output", part="tracking", sample=key)})
     return out
 
 
 @hw5.route("/tracking", methods=["GET"])
 def tracking_view():
     run_id = request.args.get("run")
-    sample_key = request.args.get("sample")
-    result = offer = info = None
-    sample_list = _tracking_samples()
+    result = offer = None
     if run_id:
         run_dir = _run_dir(run_id)
         if run_dir and os.path.exists(os.path.join(run_dir, "result.json")):
             with open(os.path.join(run_dir, "result.json")) as f:
                 result = json.load(f)
             offer = samples.offer("hw5", "track_" + samples.slug(result["label"]), result)
-    elif not request.args.get("prev") and not request.args.get("upload") and (sample_key or sample_list):
-        # default view for visitors: a saved sample, no upload needed
-        result = samples.load("hw5", sample_key or sample_list[0]["key"])
-        info = result and result["_sample"]
     prev_url = request.args.get("prev") or (result or {}).get("prev_url")
     next_url = request.args.get("next") or (result or {}).get("next_url")
     label = request.args.get("label") or (result or {}).get("label") or "Uploaded pair"
     return render_template("hw5/tracking.html", prev_url=prev_url, next_url=next_url, label=label,
-                           result=result, saved_runs=_tracking_runs(), sample_list=sample_list,
-                           sample_info=info, sample_offer=offer)
+                           result=result, saved_runs=_tracking_runs(), sample_offer=offer)
 
 
 @hw5.route("/tracking/upload", methods=["POST"])
@@ -423,9 +413,7 @@ def sfm_view():
         return render_template("hw5/sfm.html", stage="result", views=None, result=result,
                                sample_offer=samples.offer("hw5", "sfm", result))
     last = session.get("hw5_sfm")
-    sample = samples.load("hw5", "sfm")
-    return render_template("hw5/sfm.html", stage="upload", views=None, result=sample,
-                           sample_info=sample and sample["_sample"],
+    return render_template("hw5/sfm.html", stage="upload", views=None, result=None,
                            last_run=url_for("hw5.sfm_view", run=last) if last and _run_dir(last) else None)
 
 
@@ -649,3 +637,31 @@ def sfm_run():
         json.dump(result, f)
     session["hw5_sfm"] = run_id
     return redirect(url_for("hw5.sfm_view", run=run_id))
+
+
+SAMPLE_PARTS = [("flow", "1. Optical Flow"), ("tracking", "2. Tracking"), ("sfm", "3. Structure from Motion")]
+RUN_PAGES = {"flow": ("hw5.flow_view", "the Optical Flow page"), "tracking": ("hw5.tracking_view", "the Tracking page"),
+             "sfm": ("hw5.sfm_view", "the Structure from Motion page")}
+
+
+@hw5.route("/sample-output")
+def sample_output():
+    part = samples.chosen_part(SAMPLE_PARTS)
+    endpoint, label = RUN_PAGES[part]
+    tab = samples.tab("HW5", "hw5.sample_output", SAMPLE_PARTS, part, url_for(endpoint), label)
+    if part == "flow":
+        slots = []
+        for s in SLOTS:
+            run = samples.load("hw5", f"flow_video_{s}")
+            if run:
+                slots.append({"slot": s, "run": run, "sample_info": run["_sample"]})
+        return render_template("hw5/optical_flow.html", slots=slots, sample_tab=tab)
+    if part == "tracking":
+        sample_list = _tracking_samples()
+        asked = request.args.get("sample")
+        result = samples.load("hw5", asked if asked else sample_list[0]["key"]) if asked or sample_list else None
+        return render_template("hw5/tracking.html", prev_url=None, next_url=None, label="", result=result,
+                               sample_list=sample_list, sample_info=result and result["_sample"], sample_tab=tab)
+    sample = samples.load("hw5", "sfm")
+    return render_template("hw5/sfm.html", stage="sample", views=None, result=sample,
+                           sample_info=sample and sample["_sample"], sample_tab=tab)

@@ -58,12 +58,21 @@ def get_current_calibration():
     }
 
 
+def calibration_summary(calib):
+    """A saved calibration as plain numbers for the pages that display it."""
+    if calib is None:
+        return None
+    K = calib["camera_matrix"]
+    return {"fx": float(K[0, 0]), "fy": float(K[1, 1]), "cx": float(K[0, 2]), "cy": float(K[1, 2]),
+            "matrix": K.tolist(), "dist_coeffs": [round(float(c), 5) for c in calib["dist_coeffs"].ravel()],
+            "image_size": [int(v) for v in calib["image_size"]], "mean_error": calib["reprojection_error"]}
+
+
 @hw2.route("/calibrate", methods=["GET", "POST"])
 def calibrate_view():
     if request.method == "GET":
-        sample = samples.load("hw2", "calibration")
-        return render_template("hw2/calibration_step.html", result=sample and sample["result"],
-                               sample_info=sample and sample["_sample"], calib=get_current_calibration())
+        return render_template("hw2/calibration_step.html", calib=get_current_calibration(),
+                               saved=calibration_summary(get_current_calibration()))
 
     files = request.files.getlist("images")
     cols = int(request.form.get("cols", 9))
@@ -130,9 +139,7 @@ def measure_view():
     calib = get_current_calibration()
 
     if request.method == "GET":
-        sample = samples.load("hw2", "measurement")
-        return render_template("hw2/measurement_step.html", calib=calib, image_url=None,
-                               result=sample and sample["result"], sample_info=sample and sample["_sample"])
+        return render_template("hw2/measurement_step.html", calib=calib, image_url=None)
 
     if calib is None:
         flash("Run calibration before measuring an object.")
@@ -191,10 +198,6 @@ def measure_view():
 @hw2.route("/validate", methods=["GET", "POST"])
 def validate_view():
     if request.method == "GET":
-        sample = samples.load("hw2", "validation")
-        if sample:
-            return render_template("hw2/validation_step.html", stats=sample["stats"], table=sample["table"],
-                                   plot1=sample["plot1"], plot2=sample["plot2"], sample_info=sample["_sample"])
         return render_template("hw2/validation_step.html", stats=None, table=None, plot1=None, plot2=None)
 
     f = request.files.get("csv_file")
@@ -227,3 +230,25 @@ def validate_view():
         "csv": url_for("hw2.static", filename=f"results/{stamp}_validation.csv")})
     return render_template("hw2/validation_step.html", stats=stats, table=table_html, plot1=plot1, plot2=plot2,
                            sample_offer=offer)
+
+
+SAMPLE_PARTS = [("calibration", "1. Calibration"), ("measurement", "2. Measurement"), ("validation", "3. Validation")]
+
+
+@hw2.route("/sample-output")
+def sample_output():
+    part = samples.chosen_part(SAMPLE_PARTS)
+    sample = samples.load("hw2", part)
+    info = sample and sample["_sample"]
+    page = {"calibration": "calibrate", "measurement": "measure", "validation": "validate"}[part]
+    tab = samples.tab("HW2", "hw2.sample_output", SAMPLE_PARTS, part, url_for(f"hw2.{page}_view"),
+                      f"the {part} page")
+    if part == "calibration":
+        return render_template("hw2/calibration_step.html", result=sample and sample["result"], sample_info=info,
+                               saved=calibration_summary(get_current_calibration()), sample_tab=tab)
+    if part == "measurement":
+        return render_template("hw2/measurement_step.html", result=sample and sample["result"], sample_info=info,
+                               calib=None, image_url=None, sample_tab=tab)
+    sample = sample or {}
+    return render_template("hw2/validation_step.html", stats=sample.get("stats"), table=sample.get("table"),
+                           plot1=sample.get("plot1"), plot2=sample.get("plot2"), sample_info=info, sample_tab=tab)

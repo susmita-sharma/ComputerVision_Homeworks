@@ -16,4 +16,7 @@ Homework/hw4_silhouette/static/outputs/*
 Homework/hw5_motion_sfm/static/video_uploads/*
 Homework/hw5_motion_sfm/static/sfm_uploads/*
 Homework/hw5_motion_sfm/static/outputs/*
+Homework/hw_7/static/stereo_uploads/*
+Homework/hw_7/static/room_uploads/*
+Homework/hw_7/static/outputs/*
 !Homework/**/static/**/.gitkeep

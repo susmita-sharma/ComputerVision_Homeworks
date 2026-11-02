@@ -1,6 +1,7 @@
 {% extends "shell.html" %}
 {% import "_samples.html" as smp with context %}
 {% block content %}
+{% if sample_tab %}{{ smp.tab_header(sample_tab) }}{% else %}
 <div class="card">
   <h1>HW3 &middot; Blur: Spatial vs. Frequency</h1>
   <p class="muted">Upload an image, pick a blur kernel, and the app runs the <em>same</em> blur two independent
@@ -25,6 +26,8 @@
     <button type="submit">Run spatial + frequency blur</button>
   </form>
 </div>
+
+{% endif %}
 
 {% if results %}
 {% for result in results %}
@@ -58,7 +61,7 @@
 {% endfor %}
 {% endif %}
 
-{% if not sample_info %}
+{% if sample_tab and not sample_info %}
 <div class="card">
   <h2>Offline example output</h2>
   <p class="muted">The same pipeline run ahead of time on a sample photo from the repo, so you can see the panel layout without uploading anything:</p>
@@ -69,6 +72,7 @@
 </div>
 {% endif %}
 
+{% if not sample_tab %}
 <div class="theory-box">
   <h3>Theory: convolution in space &equiv; multiplication in frequency</h3>
   <p>Let <code>f(x, y)</code> be the image and <code>h(x, y)</code> the blur kernel. 2D linear convolution is
@@ -103,4 +107,5 @@
       (<code>cv2.BORDER_CONSTANT</code>) so it matches the implicit zero-padding used on the frequency side.</li>
   </ol>
 </div>
+{% endif %}
 {% endblock %}

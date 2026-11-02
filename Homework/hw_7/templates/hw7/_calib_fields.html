@@ -1,0 +1,39 @@
+{# Camera calibration inputs shared by the stereo and room forms. #}
+{% macro fields(saved, with_exif) %}
+<label>Camera calibration source</label>
+<select name="calib_source" class="calibSource" style="padding:8px 10px; border:1px solid var(--border); border-radius:6px;">
+  {% if saved %}<option value="hw2">Saved HW2 calibration (same camera)</option>{% endif %}
+  {% if with_exif %}<option value="exif">Photo EXIF focal length</option>{% endif %}
+  <option value="manual">Enter parameters by hand</option>
+</select>
+{% if saved %}
+<div class="savedCalib">
+  <p class="muted">Saved in <a href="{{ url_for('hw2.calibrate_view') }}#saved">HW2</a>:
+    fx {{ "%.2f"|format(saved.fx) }}, fy {{ "%.2f"|format(saved.fy) }}, cx {{ "%.2f"|format(saved.cx) }},
+    cy {{ "%.2f"|format(saved.cy) }} at {{ saved.image_size[0] }}&times;{{ saved.image_size[1] }} px,
+    distortion <code>{{ saved.dist_coeffs }}</code>. Adapted automatically to the size of your upload.</p>
+</div>
+{% else %}
+<p class="muted">No saved HW2 calibration yet. <a href="{{ url_for('hw2.calibrate_view') }}">Run it in HW2</a> to use it here.</p>
+{% endif %}
+<div class="manualCalib" {% if saved or with_exif %}style="display:none"{% endif %}>
+  <p class="muted">In pixels of the uploaded file. Blank fy uses fx; blank cx, cy use the image centre.</p>
+  <label>fx</label><input type="number" name="fx" step="any">
+  <label>fy</label><input type="number" name="fy" step="any">
+  <label>cx</label><input type="number" name="cx" step="any">
+  <label>cy</label><input type="number" name="cy" step="any">
+  <label>Distortion k1, k2, p1, p2, k3 (optional)</label><input type="text" name="dist">
+</div>
+<script>
+  document.querySelectorAll('.calibSource').forEach(sel => {
+    const box = sel.parentElement.querySelector('.manualCalib');
+    const saved = sel.parentElement.querySelector('.savedCalib');
+    const sync = () => {
+      box.style.display = sel.value === 'manual' ? 'block' : 'none';
+      if (saved) saved.style.display = sel.value === 'hw2' ? 'block' : 'none';
+    };
+    sel.addEventListener('change', sync);
+    sync();
+  });
+</script>
+{% endmacro %}

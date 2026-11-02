@@ -13,6 +13,7 @@
   .legend-grid div { background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
   ul.infer li { margin-bottom: 6px; }
 </style>
+{% if sample_tab %}{{ smp.tab_header(sample_tab) }}{% else %}
 
 <div class="card">
   <h1>HW5 Step 1 &middot; Optical Flow &amp; Tracking on Video <span class="hw-pill">2 videos &middot; 30 s each</span></h1>
@@ -80,6 +81,8 @@
   <p>Each video's results below list these inferences with the measured numbers behind them. The derivation of the
     flow constraint is on the <a href="{{ url_for('hw5.tracking_view') }}" style="color:#93c5fd">Tracking page</a>.</p>
 </div>
+
+{% endif %}
 
 {% for s in slots %}
 {% set run = s.run %}
@@ -204,12 +207,12 @@
     {{ smp.save_button(s.sample_offer, "Save Video " ~ s.slot ~ "'s results as the offline sample") }}
     {% if not s.sample_info %}
     <form method="POST" action="{{ url_for('hw5.flow_clear', slot=s.slot) }}" style="display:inline;">
-      <button type="submit" style="background:#64748b; font-size:13px; padding:6px 12px;">Clear slot (show the saved sample)</button>
+      <button type="submit" style="background:#64748b; font-size:13px; padding:6px 12px;">Clear slot</button>
     </form>
     {% endif %}
   {% endif %}
 
-  {% if not run or run.status.state != 'running' %}
+  {% if not sample_tab and (not run or run.status.state != 'running') %}
   {% if run and run.summary %}<details style="margin-top:18px;"><summary>Process a different video for slot {{ s.slot }}</summary>{% endif %}
   <form method="POST" action="{{ url_for('hw5.flow_start', slot=s.slot) }}" enctype="multipart/form-data">
     <label>Video {{ s.slot }} file (mp4 / mov / avi / webm)</label>
@@ -224,4 +227,5 @@
   {% endif %}
 </div>
 {% endfor %}
+{% if sample_tab and not slots %}<div class="card"><p>No saved optical flow run yet.</p></div>{% endif %}
 {% endblock %}

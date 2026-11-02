@@ -1,0 +1,96 @@
+{% extends "shell.html" %}
+{% block content %}
+<div class="card">
+  <h1>Challenge 1 &middot; Sample Output</h1>
+  <p>Context-aware hierarchical robot control: does an environment-understanding phase with a Video-LLM improve robot
+    operation in an unseen home, without retraining any model?</p>
+  <p class="muted">Saved outputs of the Colab notebook. They were run there on a GPU, so nothing runs on this page.
+    <a href="{{ url_for('challenge1.download') }}">Download the notebook</a></p>
+</div>
+
+<div class="card">
+  <h2>Method</h2>
+  <p><strong>Perception</strong> (Video-LLM on a walkthrough video) &rarr; <strong>Reasoning</strong> (VLM with the task)
+    &rarr; <strong>Environment grounding</strong> (structured JSON context) &rarr; <strong>Low-level policy</strong> (actions)</p>
+  <table class="result-table">
+    <thead><tr><th>Component</th><th style="text-align:left">Used here</th></tr></thead>
+    <tbody>
+      <tr><td>Video-LLM and VLM</td><td style="text-align:left">Qwen2.5-VL-3B-Instruct, frozen</td></tr>
+      <tr><td>High-level reasoning</td><td style="text-align:left">Same VLM, prompted with the task and scene summary</td></tr>
+      <tr><td>Low-level policy</td><td style="text-align:left">Scripted pick-and-place controller, standing in for a learned policy</td></tr>
+      <tr><td>Evaluator</td><td style="text-align:left">OWLv2 detector, giving a pseudo ground-truth box for the target</td></tr>
+    </tbody>
+  </table>
+  <p class="muted" style="margin-top:12px;"><strong>Baseline:</strong> no scene context, uses a preset grasp location and
+    counter height. <strong>Context-aware:</strong> watches the scene first, then grounds the task. Each home is tested in
+    normal light and in dim light (simulated at 35% brightness).</p>
+</div>
+
+<div class="card">
+  <h2>Summary</h2>
+  <p class="muted">Grasp success: the planned grasp point lies inside the target's box. IoU: overlap of the grounded box with that box.</p>
+  <table class="result-table">
+    <thead><tr><th>Method</th><th>Grasp, normal</th><th>IoU, normal</th><th>Grasp, dim</th><th>IoU, dim</th><th>Grasp, overall</th><th>IoU, overall</th></tr></thead>
+    <tbody>
+      {% for s in results.summary %}
+      <tr><td>{{ s.method }}</td><td>{{ "%.2f"|format(s.normal.grasp) }}</td><td>{{ "%.2f"|format(s.normal.iou) }}</td>
+        <td>{{ "%.2f"|format(s.dim.grasp) }}</td><td>{{ "%.2f"|format(s.dim.iou) }}</td>
+        <td>{{ "%.2f"|format(s.grasp) }}</td><td>{{ "%.2f"|format(s.iou) }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if has_figure %}
+<div class="card">
+  <h2>Grasp points and grounded boxes</h2>
+  <img src="{{ url_for('challenge1.figure') }}" alt="Target boxes and grasp points for each home in normal and dim light" style="width:100%; border-radius:8px; border:1px solid var(--border);">
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>Per-run results</h2>
+  <table class="result-table">
+    <thead><tr><th>Home</th><th>Lighting</th><th>Method</th><th>Grasp success</th><th>IoU</th></tr></thead>
+    <tbody>
+      {% for r in results.rows %}
+      <tr><td>{{ r.home }}</td><td>{{ r.lighting }}</td><td>{{ r.method }}</td><td>{{ r.grasp_success }}</td><td>{{ "%.3f"|format(r.iou) }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% for h in results.homes %}
+<div class="card">
+  <h2>{{ h.name }}</h2>
+  <p><strong>Task:</strong> {{ h.task }}</p>
+  <div class="stat-grid">
+    <div class="stat-box"><div class="label">Room</div><div class="value">{{ h.scene.room_type }}</div></div>
+    <div class="stat-box"><div class="label">Lighting</div><div class="value">{{ h.scene.lighting }}</div></div>
+    <div class="stat-box"><div class="label">Clutter</div><div class="value">{{ h.scene.clutter }}</div></div>
+  </div>
+  <p style="margin-top:14px;"><strong>Objects seen:</strong> {{ h.scene.objects|join(', ') }}</p>
+  <p><strong>Surfaces:</strong> {% for s in h.scene.surfaces %}{{ s.name }} ({{ s.height }}){% if not loop.last %}, {% endif %}{% endfor %}</p>
+  <p><strong>Plan:</strong></p>
+  <ol>{% for step in h.plan %}<li>{{ step }}</li>{% endfor %}</ol>
+  <p><strong>Actions:</strong></p>
+  <p>{% for a in h.actions %}<code style="display:inline-block; margin:0 4px 4px 0;">{{ a }}</code>{% endfor %}</p>
+</div>
+{% endfor %}
+
+<div class="card">
+  <h2>Findings</h2>
+  <ul>
+    <li><strong>Feasibility:</strong> a frozen Video-LLM can turn a short walkthrough of an unseen home into structured
+      context and ground the task target in pixels, with prompting and no retraining.</li>
+    <li><strong>Baseline vs. context-aware:</strong> the preset baseline fits a new home only if it happens to match the
+      training layout. The context-aware layer adapts the grasp point and surface height per home.</li>
+    <li><strong>Lighting:</strong> the dim condition shows how robust the grounding is to changing light. Any IoU drop
+      shows where better perception is needed.</li>
+    <li><strong>Limitations:</strong> 2-D pixel targets only, OWLv2 boxes are pseudo ground truth, the policy is scripted,
+      and the number of homes is small.</li>
+    <li><strong>Next steps:</strong> add depth for 3-D grounding, feed the context into a learned policy in a simulator,
+      and test more homes and clutter levels.</li>
+  </ul>
+</div>
+{% endblock %}

@@ -1,0 +1,156 @@
+{
+ "key": "stereo",
+ "saved_at": "2026-11-01 20:49",
+ "data": {
+  "geom": {
+   "f": 1075.6681357536086,
+   "cx": 554.5748443603516,
+   "cy": 723.7350082397461,
+   "doff": -8.014259338378906,
+   "baseline": 297.0
+  },
+  "lo": -2.083343505859375,
+  "hi": 271.26503295898425,
+  "n_matches": 209,
+  "n_inliers": 66,
+  "n_rows": 77,
+  "row_err": 0.42,
+  "rotation_deg": 1.26,
+  "T": [
+   -296.9,
+   3.8,
+   8.5
+  ],
+  "baseline_mm": 297.0,
+  "object_distance_mm": 1188.0,
+  "already_rectified": false,
+  "k_source": "HW2 chessboard calibration adapted to this image size. Only valid if these images came from the same camera.",
+  "dist_text": "0.0509, -0.0976, 0.0000, 0.0000, 0.0239",
+  "image_size": [
+   1050,
+   1400
+  ],
+  "K_work": [
+   [
+    1055.34,
+    0.0,
+    525.41
+   ],
+   [
+    0.0,
+    1052.62,
+    723.67
+   ],
+   [
+    0.0,
+    0.0,
+    1.0
+   ]
+  ],
+  "expected_disparity": 268.9,
+  "disparity_range": [
+   5.9,
+   279.3
+  ],
+  "depth_range": [
+   1150.9,
+   6216.7
+  ],
+  "run_id": "stereo_1793584120620",
+  "urls": {
+   "left": "sample://left.jpg",
+   "right": "sample://right.jpg",
+   "rect_left": "sample://rect_left.jpg",
+   "rect_right": "sample://rect_right.jpg",
+   "disparity": "sample://disparity.png",
+   "depth": "sample://depth.png"
+  },
+  "zip_url": "sample-zip://",
+  "result": {
+   "shapes": [
+    {
+     "kind": "rectangle",
+     "points": [
+      {
+       "x": 462.4938574938575,
+       "y": 512.5093548447754,
+       "xr": 198.0595371350646,
+       "ncc": 0.873,
+       "method": "ncc",
+       "d": 272.45,
+       "xyz": [
+        -100.4,
+        -230.3,
+        1172.6
+       ]
+      },
+      {
+       "x": 744.1926991926991,
+       "y": 513.8572046407552,
+       "xr": 485.92179453372955,
+       "ncc": 0.963,
+       "method": "ncc",
+       "d": 266.29,
+       "xyz": [
+        211.5,
+        -234.1,
+        1199.7
+       ]
+      },
+      {
+       "x": 748.2362232362232,
+       "y": 714.6868242417405,
+       "xr": 489.26464009284973,
+       "ncc": 0.94,
+       "method": "ncc",
+       "d": 266.99,
+       "xyz": [
+        215.4,
+        -10.1,
+        1196.6
+       ]
+      },
+      {
+       "x": 454.40680940680943,
+       "y": 714.6868242417405,
+       "xr": 179.0388576760888,
+       "ncc": 0.957,
+       "method": "ncc",
+       "d": 283.38,
+       "xyz": [
+        -105.0,
+        -9.5,
+        1127.4
+       ]
+      }
+     ],
+     "edges": [
+      313.07036976833564,
+      224.07774923071935,
+      327.8092560512271,
+      225.41191084290392
+     ],
+     "items": [
+      {
+       "label": "Width (mean of edges 1-2 and 3-4)",
+       "mm": 320.4398129097814
+      },
+      {
+       "label": "Height (mean of edges 2-3 and 4-1)",
+       "mm": 224.74483003681163
+      }
+     ],
+     "summary": "Width 320 mm, Height 225 mm"
+    }
+   ],
+   "mean_z": 1174.0736566319874,
+   "known_z": 1188.0,
+   "corrected": false,
+   "z_error_pct": -1.172251125253583,
+   "disparity_offset": -0.8001771510599269,
+   "weak_points": 0,
+   "outliers": []
+  },
+  "annotated_url": "sample://measured.jpg"
+ }
+}

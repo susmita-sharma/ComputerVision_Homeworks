@@ -1,6 +1,7 @@
 {% extends "shell.html" %}
 {% import "_samples.html" as smp with context %}
 {% block content %}
+{% if sample_tab %}{{ smp.tab_header(sample_tab) }}{% else %}
 <div class="card">
   <h1>HW5 Step 3 &middot; Structure from Motion (Planar Object, 4 Viewpoints)</h1>
   <p class="muted">Recovers each camera's pose from 4 photos of one flat object, then triangulates extra
@@ -58,6 +59,8 @@
     principal point at the image centre; (3) an assumed 60&deg; horizontal field of view. The results report
     which one was used.</p>
 </div>
+
+{% endif %}
 
 {% if stage == 'upload' %}
 {% if last_run %}<div class="card"><p>Your last reconstruction this session: <a href="{{ last_run }}">open result &rarr;</a></p></div>{% endif %}

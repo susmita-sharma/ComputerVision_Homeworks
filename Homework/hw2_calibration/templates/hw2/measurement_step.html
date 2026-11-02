@@ -1,6 +1,7 @@
 {% extends "shell.html" %}
 {% import "_samples.html" as smp with context %}
 {% block content %}
+{% if sample_tab %}{{ smp.tab_header(sample_tab) }}{% else %}
 <div class="card">
   <h1>Step 2 - Real-World Measurement</h1>
 
@@ -89,6 +90,8 @@
   {% endif %}
 </div>
 
+{% endif %}
+
 {% if result %}
 <div class="card">
   {{ smp.banner(sample_info) }}
@@ -107,7 +110,7 @@
 </div>
 {% endif %}
 
-{% if not sample_info %}
+{% if sample_tab and not sample_info %}
 <div class="card">
   <h2>Offline example output</h2>
   <p class="muted">Two points clicked on a real object photo from the repo, converted to a real-world length with the calibrated camera matrix -

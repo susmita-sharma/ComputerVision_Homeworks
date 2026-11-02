@@ -65,9 +65,7 @@ def _run_one_kernel(image, kernel_type, ksize, sigma, stamp):
 @hw3.route("/", methods=["GET", "POST"])
 def blur_view():
     if request.method == "GET":
-        sample = samples.load("hw3", "blur")
-        return render_template("hw3/frequency_blur.html", results=sample and sample["results"],
-                               sample_info=sample and sample["_sample"])
+        return render_template("hw3/frequency_blur.html")
 
     f = request.files.get("image")
     if not f or not f.filename:
@@ -101,3 +99,12 @@ def blur_view():
 
     offer = samples.offer("hw3", "blur", {"results": results})
     return render_template("hw3/frequency_blur.html", results=results, sample_offer=offer)
+
+
+@hw3.route("/sample-output")
+def sample_output():
+    sample = samples.load("hw3", "blur")
+    return render_template("hw3/frequency_blur.html", results=sample and sample["results"],
+                           sample_info=sample and sample["_sample"],
+                           sample_tab=samples.tab("HW3", "hw3.sample_output", [("blur", "Blur")], "blur",
+                                                  url_for("hw3.blur_view"), "the blur experiment page"))
