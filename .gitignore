@@ -3,6 +3,7 @@ __pycache__/
 venv/
 camera_calib.npz
 .DS_Store
+.claude/
 
 # HW2 - runtime uploads/output (demo assets under static/demo/ stay tracked)
 Homework/hw2_calibration/static/calib/*.npz
